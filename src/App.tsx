@@ -1,11 +1,11 @@
+import Login from "./pages/Login"
 
 function App() {
 
   return (
-
-    <div className="flex flex-col min-h-screen justify-center items-center">
+    <div className="min-h-screen flex flex-col justify-center">
+      <Login></Login>
     </div>
-
   )
 }
 
