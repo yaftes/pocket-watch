@@ -1,11 +1,10 @@
 import Login from "./pages/Login"
+import Register from "./pages/Register"
 
 function App() {
 
   return (
-    <div className="min-h-screen flex flex-col justify-center">
-      <Login></Login>
-    </div>
+     <Register/>
   )
 }
 
