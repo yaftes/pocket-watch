@@ -50,3 +50,5 @@ export const parseReceiptText = (text: string, userId: string) => {
     notes: text, 
   };
 };
+
+

@@ -1,7 +1,8 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase_client';
 
 
 export const getTransactions = async (userId: string) => {
+
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -10,10 +11,12 @@ export const getTransactions = async (userId: string) => {
 
   if (error) throw error;
   return data;
+
 };
 
 
 export const addTransaction = async (transaction: any) => {
+    
   const { data, error } = await supabase
     .from('transactions')
     .insert([transaction])
@@ -21,6 +24,7 @@ export const addTransaction = async (transaction: any) => {
 
   if (error) throw error;
   return data?.[0];
+  
 };
 
 

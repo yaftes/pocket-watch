@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase_client';
 
 
 export const getBudgets = async (userId: string) => {
@@ -17,10 +17,10 @@ export const addBudget = async (budget: any) => {
     .from('budgets')
     .insert([budget])
     .select();
-
   if (error) throw error;
   return data?.[0];
 };
+
 
 
 export const updateBudget = async (id: string, updatedData: any) => {
@@ -33,6 +33,7 @@ export const updateBudget = async (id: string, updatedData: any) => {
   if (error) throw error;
   return data?.[0];
 };
+
 
 
 export const deleteBudget = async (id: string) => {

@@ -1,11 +1,14 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "../../api/supabaseClient";
+import { supabase } from "../../api/supabase_client";
+import { Spinner } from "../../components/ui/spinner";
 
 const PublicRoute = () => {
+
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
 
   useEffect(() => {
+    
     supabase.auth.getSession().then(({ data }) => {
       setIsAuth(!!data.session);
     });
@@ -17,13 +20,21 @@ const PublicRoute = () => {
     );
 
     return () => listener.subscription.unsubscribe();
+
   }, []);
 
-  if (isAuth === null) return <div>Loading...</div>;
 
-  if (isAuth) return <Navigate to="/dashboard" replace />;
+    if (isAuth === null) return (
 
-  return <Outlet />;
+      <div className="flex flex-col items-center justify-center h-screen">
+        <Spinner />
+      </div>
+
+    );
+
+    if (isAuth) return <Navigate to="/dashboard" replace />;
+
+    return <Outlet />;
 };
 
 export default PublicRoute;

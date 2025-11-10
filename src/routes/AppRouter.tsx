@@ -1,16 +1,29 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+import PrivateRoute from "./guards/PrivateRoute";
+import PublicRoute from "./guards/PublicRoute";
+
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import Dashboard from "../pages/Dashboard";
+import { Route, Routes } from "react-router-dom";
 
-const AppRouter = () => {
+
+const AppRoutes = () => {
   return (
-    <Router>
+
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route element={<PublicRoute />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
+
+        <Route element={<PrivateRoute />}>
+         <Route path="/dashboard" element={<Dashboard/>}/>
+        </Route>
+        <Route path="/" element={<Login />} />
       </Routes>
-    </Router>
+
   );
 };
 
-export default AppRouter;
+export default AppRoutes;
