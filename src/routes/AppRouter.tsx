@@ -6,12 +6,14 @@ import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
 import { Route, Routes } from "react-router-dom";
+import  Budgets  from "../pages/Budgets";
 
 
 const AppRoutes = () => {
   return (
 
       <Routes>
+
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -19,7 +21,9 @@ const AppRoutes = () => {
 
         <Route element={<PrivateRoute />}>
          <Route path="/dashboard" element={<Dashboard/>}/>
+         <Route path="/budgets" element={<Budgets/>}/>
         </Route>
+        
         <Route path="/" element={<Login />} />
       </Routes>
 
