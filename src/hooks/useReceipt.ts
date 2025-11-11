@@ -4,8 +4,11 @@ import { parseReceiptText } from '../utils/parse_receipt';
 import { addTransaction } from '../api/transaction_api';
 
 export const useReceipt = (userId: string) => {
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+  
 
   const handleUpload = async (file: File) => {
     try {

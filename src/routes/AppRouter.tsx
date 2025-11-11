@@ -1,32 +1,30 @@
-
 import PrivateRoute from "./guards/PrivateRoute";
 import PublicRoute from "./guards/PublicRoute";
 
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
-import { Route, Routes } from "react-router-dom";
-import  Budgets  from "../pages/Budgets";
+import Budgets from "../pages/Budgets";
+import Transactions from "../pages/Transactions"; // ✅ import the Transactions page
 
+import { Route, Routes } from "react-router-dom";
 
 const AppRoutes = () => {
   return (
+    <Routes>
+      <Route element={<PublicRoute />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Route>
 
-      <Routes>
+      <Route element={<PrivateRoute />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/budgets" element={<Budgets />} />
+        <Route path="/transactions/:budgetId" element={<Transactions />} /> {/* ✅ Transactions route */}
+      </Route>
 
-        <Route element={<PublicRoute />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
-
-        <Route element={<PrivateRoute />}>
-         <Route path="/dashboard" element={<Dashboard/>}/>
-         <Route path="/budgets" element={<Budgets/>}/>
-        </Route>
-        
-        <Route path="/" element={<Login />} />
-      </Routes>
-
+      <Route path="/" element={<Login />} />
+    </Routes>
   );
 };
 

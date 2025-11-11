@@ -2,22 +2,22 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { ChevronDownIcon } from "lucide-react"
 
-import { Button } from "../components/ui/button"
-import { Calendar } from "../components/ui/calendar"
-import { Label } from "../components/ui/label"
-import { Input } from "../components/ui/input"
+import { Button } from "../ui/button"
+import { Calendar } from "../ui/calendar"
+import { Label } from "../ui/label"
+import { Input } from "../ui/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../components/ui/popover"
+} from "../ui/popover"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select"
+} from "../ui/select"
 
 export type BudgetInputs = {
   category: string
@@ -35,6 +35,7 @@ type BudgetFormProps = {
 const BudgetForm: React.FC<BudgetFormProps> = ({
   initialValues,
   onSubmitForm,
+  onDelete,
 }) => {
   const {
     register,
@@ -42,9 +43,21 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     setValue,
     formState: { errors },
     reset,
+    watch,
   } = useForm<BudgetInputs>({
-    defaultValues: initialValues,
+    defaultValues: {
+      category: initialValues?.category ?? "",
+      amount: initialValues?.amount,
+      start_date: initialValues?.start_date,
+      end_date: initialValues?.end_date,
+    },
   })
+
+  React.useEffect(() => {
+    register("category", { required: true })
+    register("start_date", { required: true })
+    register("end_date", { required: true })
+  }, [register])
 
   const [openStart, setOpenStart] = React.useState(false)
   const [openEnd, setOpenEnd] = React.useState(false)
@@ -54,6 +67,17 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const [endDate, setEndDate] = React.useState<Date | undefined>(
     initialValues?.end_date
   )
+
+  React.useEffect(() => {
+    reset({
+      category: initialValues?.category ?? "",
+      amount: initialValues?.amount,
+      start_date: initialValues?.start_date,
+      end_date: initialValues?.end_date,
+    })
+    setStartDate(initialValues?.start_date)
+    setEndDate(initialValues?.end_date)
+  }, [initialValues, reset])
 
   const onSubmit = (data: BudgetInputs) => {
     onSubmitForm(data)
@@ -69,7 +93,12 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     >
       <div className="flex flex-col gap-1">
         <Label htmlFor="category">Category</Label>
-        <Select onValueChange={(value) => setValue("category", value)}>
+        <Select
+          onValueChange={(value) =>
+            setValue("category", value, { shouldValidate: true })
+          }
+          value={watch("category") || undefined}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
@@ -130,12 +159,17 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
                 selected={startDate}
                 onSelect={(date) => {
                   setStartDate(date)
-                  setValue("start_date", date!)
+                  if (date) {
+                    setValue("start_date", date, { shouldValidate: true })
+                  }
                   setOpenStart(false)
                 }}
               />
             </PopoverContent>
           </Popover>
+          {errors.start_date && (
+            <span className="text-red-500 text-sm">Start date is required</span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -166,16 +200,26 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
                 selected={endDate}
                 onSelect={(date) => {
                   setEndDate(date)
-                  setValue("end_date", date!)
+                  if (date) {
+                    setValue("end_date", date, { shouldValidate: true })
+                  }
                   setOpenEnd(false)
                 }}
               />
             </PopoverContent>
           </Popover>
+          {errors.end_date && (
+            <span className="text-red-500 text-sm">End date is required</span>
+          )}
         </div>
       </div>
 
       <div className="flex gap-2 justify-end">
+        {onDelete && (
+          <Button type="button" variant="destructive" onClick={onDelete}>
+            Delete
+          </Button>
+        )}
         <Button type="submit">{initialValues ? "Update" : "Create"}</Button>
       </div>
     </form>

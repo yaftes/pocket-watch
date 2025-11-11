@@ -2,27 +2,29 @@ import { useEffect, useState } from "react";
 import { supabase } from "../api/supabase_client";
 
 const Dashboard = () => {
+
  const [user, setUser] = useState<{ email: string | null; full_name: string } | null>(null);
 
-useEffect(() => {
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUser({
-        email: user.email ?? null, 
-        full_name: (user.user_metadata.full_name as string) || user.email || "",
-      });
-    }
-  };
-  fetchUser();
-}, []);
+  useEffect(() => {
+    
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser({
+          email: user.email ?? null, 
+          full_name: (user.user_metadata.full_name as string) || user.email || "",
+        });
+      }
+    };
+    fetchUser();
+  }, []);
 
 
 
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="w-full bg-white shadow-md p-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Pocket Watch Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         {user && (
           <div className="flex items-center space-x-2">
             <span className="text-gray-700 font-medium">{user.full_name}</span>
@@ -64,3 +66,5 @@ useEffect(() => {
 };
 
 export default Dashboard;
+
+
