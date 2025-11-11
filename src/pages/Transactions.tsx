@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -8,81 +7,14 @@ import {
   type Transaction,
 } from "../api/transaction_api";
 import { supabase } from "../api/supabase_client";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter,
-} from "../components/ui/card";
+import type { TransactionInputs } from "../components/transaction/TransactionForm";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import TransactionForm from "../components/transaction/TransactionForm";
 import { Button } from "../components/ui/button";
-import { Popover, PopoverTrigger, PopoverContent } from "../components/ui/popover";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
 
 
-export type TransactionInputs = {
-  category: string;
-  amount: number;
-  note?: string;
-  date: Date;
-};
 
-type TransactionFormProps = {
-  initialValues?: TransactionInputs;
-  onSubmitForm: (data: TransactionInputs) => void;
-};
-
-const TransactionForm = ({ initialValues, onSubmitForm }: TransactionFormProps) => {
-  const [category, setCategory] = useState(initialValues?.category || "");
-  const [amount, setAmount] = useState(initialValues?.amount || 0);
-  const [note, setNote] = useState(initialValues?.note || "");
-  const [date, setDate] = useState(initialValues?.date.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmitForm({
-      category,
-      amount,
-      note,
-      date: new Date(date),
-    });
-  };
-
-  return (
-    <form className="flex flex-col gap-3 w-full" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        placeholder="Category"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        className="border p-2 rounded"
-        required
-      />
-      <input
-        type="number"
-        placeholder="Amount"
-        value={amount}
-        onChange={(e) => setAmount(Number(e.target.value))}
-        className="border p-2 rounded"
-        required
-      />
-      <input
-        type="text"
-        placeholder="Note"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        className="border p-2 rounded"
-      />
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="border p-2 rounded"
-        required
-      />
-      <Button type="submit">Save Transaction</Button>
-    </form>
-  );
-};
 
 const Transactions = () => {
   const { budgetId } = useParams<{ budgetId: string }>();
@@ -96,10 +28,7 @@ const Transactions = () => {
     const fetchTransactions = async () => {
       try {
         setLoading(true);
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabase.auth.getUser();
         if (error) throw error;
         if (!user) {
           setErrorMessage("You must be logged in to view transactions.");
@@ -140,15 +69,19 @@ const Transactions = () => {
 
     try {
       setLoading(true);
+
+      // Optional: Upload file to Supabase storage if data.file exists
+
       const newTransaction = await addTransaction({
         user_id: userId,
         budget_id: budgetId,
-        category: data.category,
         amount: data.amount,
         note: data.note,
         date: data.date.toISOString().split("T")[0],
         created_at: new Date().toISOString(),
+        file_url: undef ined,
       });
+
       setTransactions((prev) => [newTransaction, ...prev]);
       setIsPopoverOpen(false);
     } catch (err: any) {
@@ -187,18 +120,20 @@ const Transactions = () => {
           {transactions.map((transaction) => (
             <Card key={transaction.id}>
               <CardHeader>
-                <CardTitle>{transaction.category}</CardTitle>
+                <CardTitle>Transaction</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
-                <p>
-                  <strong>Amount:</strong> {transaction.amount}$
-                </p>
-                <p>
-                  <strong>Note:</strong> {transaction.note || "-"}
-                </p>
-                <p>
-                  <strong>Date:</strong> {transaction.date}
-                </p>
+                <p><strong>Amount:</strong> {transaction.amount}$</p>
+                <p><strong>Note:</strong> {transaction.note || "-"}</p>
+                <p><strong>Date:</strong> {transaction.date}</p>
+                {transaction.file_url && (
+                  <p>
+                    <strong>File:</strong>{" "}
+                    <a href={transaction.file_url} target="_blank" rel="noreferrer" className="text-blue-500 underline">
+                      View
+                    </a>
+                  </p>
+                )}
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
                 <Button

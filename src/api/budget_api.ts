@@ -16,7 +16,7 @@ export const addBudget = async (
   user_id: string,
   category: string,
   budget: {
-    start_date: string; // e.g. "2025-11-01"
+    start_date: string;
     end_date: string;
     amount: number;
   }

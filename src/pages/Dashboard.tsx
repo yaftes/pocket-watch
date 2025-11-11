@@ -21,6 +21,17 @@ const Dashboard = () => {
 
 
 
+  /*
+
+  the informations i could display here
+
+  -> for each category simply chart shows the total budget on each category cool chart using shadcn component
+  -> the trasactions being made on each category
+
+  */
+
+
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="w-full bg-white shadow-md p-4 flex justify-between items-center">

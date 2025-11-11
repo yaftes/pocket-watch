@@ -41,7 +41,6 @@ const Budgets = () => {
   
   const navigate = useNavigate()
 
-  // ✅ Fetch logged-in user and their budgets
   React.useEffect(() => {
     const fetchUserAndBudgets = async () => {
       try {
@@ -69,7 +68,6 @@ const Budgets = () => {
     fetchUserAndBudgets()
   }, [])
 
-  // ✅ Delete handler
   const handleDelete = async (id: number) => {
     try {
       setLoading(true)
@@ -82,18 +80,18 @@ const Budgets = () => {
     }
   }
 
-  // ✅ Edit handler
+  
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget)
     setIsPopoverOpen(true)
   }
 
-  // ✅ Navigate to transactions page
+  
   const handleTransaction = (budgetId: number) => {
     navigate(`/transactions/${budgetId}`)
   }
 
-  // ✅ Form submit handler (Create / Update)
+  
   const handleFormSubmit = async (data: BudgetInputs) => {
     if (!userId) {
       setErrorMessage("You must be logged in to perform this action.")
@@ -104,18 +102,18 @@ const Budgets = () => {
       setLoading(true)
       setErrorMessage(null)
 
-      // ⚠️ Force start date = today
+      
       const today = new Date()
       const startDate = today.toISOString().split("T")[0]
 
-      // ⚠️ Ensure end date is not before start date
+      
       const endDate = data.end_date.toISOString().split("T")[0]
       if (new Date(endDate) < new Date(startDate)) {
         throw new Error("End date cannot be before the start date.")
       }
 
       if (editingBudget) {
-        // Update existing budget
+        
         const updated = await updateBudget(editingBudget.id.toString(), {
           category: data.category,
           amount: data.amount,
@@ -127,7 +125,7 @@ const Budgets = () => {
         )
         setEditingBudget(null)
       } else {
-        // Create new budget
+        
         const newBudget = await addBudget(userId, data.category, {
           start_date: startDate,
           end_date: endDate,
@@ -145,9 +143,11 @@ const Budgets = () => {
   }
 
   return (
+
     <div className="flex flex-col gap-6 p-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Your Budgets</h1>
+        
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -191,14 +191,12 @@ const Budgets = () => {
         </Popover>
       </div>
 
-      {/* ✅ Error message */}
       {errorMessage && (
         <div className="p-3 bg-red-100 text-red-600 rounded-md text-center">
           {errorMessage}
         </div>
       )}
 
-      {/* ✅ Loading, Empty, or Budget Grid */}
       {loading ? (
         <p className="text-center text-gray-500">Loading budgets...</p>
       ) : budgets.length === 0 ? (
@@ -206,6 +204,7 @@ const Budgets = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {budgets.map((budget) => (
+
             <Card key={budget.id}>
               <CardHeader>
                 <CardTitle>{budget.category}</CardTitle>
@@ -243,6 +242,7 @@ const Budgets = () => {
                 </Button>
               </CardFooter>
             </Card>
+            
           ))}
         </div>
       )}
