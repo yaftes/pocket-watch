@@ -4,8 +4,8 @@ import PublicRoute from "./guards/PublicRoute";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
-import Budgets from "../pages/Budgets";
-import Transactions from "../pages/Transactions"; // ✅ import the Transactions page
+// import Budgets from "../pages/Budgets";
+// import Transactions from "../pages/Transactions"; // ✅ import the Transactions page
 
 import { Route, Routes } from "react-router-dom";
 
@@ -19,8 +19,6 @@ const AppRoutes = () => {
 
       <Route element={<PrivateRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/budgets" element={<Budgets />} />
-        <Route path="/transactions/:budgetId" element={<Transactions />} /> {/* ✅ Transactions route */}
       </Route>
 
       <Route path="/" element={<Login />} />
