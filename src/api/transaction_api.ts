@@ -6,7 +6,6 @@ export type Transaction = {
   category: string;
   amount: number;
   note?: string;
-  date: string;
   budget_id?: string;
   created_at?: string;
 };
@@ -46,6 +45,7 @@ export const getTransactions = async (
 
 
 export const addTransaction = async (transaction: Transaction) => {
+
   const { data: categoryData, error: catError } = await supabase
     .from("categories")
     .select("*")
@@ -82,8 +82,7 @@ export const addTransaction = async (transaction: Transaction) => {
         budget_id: activeBudget.id,
         category_id: categoryId,
         amount: transaction.amount,
-        note: transaction.note || "",
-        date: transaction.date,
+        description: transaction.note || "",
         created_at: new Date().toISOString(),
       },
     ])
@@ -93,6 +92,8 @@ export const addTransaction = async (transaction: Transaction) => {
   if (error) throw error;
   return data;
 };
+
+
 
 
 export const updateTransaction = async (

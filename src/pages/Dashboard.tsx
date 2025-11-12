@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   addCategory,
@@ -56,16 +56,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Upload } from "lucide-react";
 
+
+
+
+
 type CategoryInputs = { title: string };
+
 type TransactionInputs = { category: string; amount: number; note: string };
 
 const Dashboard = () => {
+  
   const { register, handleSubmit, formState: { errors }, reset } = useForm<CategoryInputs>();
-  const {
-    register: registerTransaction,
-    handleSubmit: handleTransactionSubmit,
-    reset: resetTransaction,
-  } = useForm<TransactionInputs>();
+
+  const { register: registerTransaction, handleSubmit: handleTransactionSubmit, reset: resetTransaction, setValue } = useForm<TransactionInputs>();
+
 
   const [categories, setCategories] = useState<CategoryDashboardInfo[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -115,6 +119,7 @@ const Dashboard = () => {
     fetchCategories();
   }, [navigate]);
 
+
   const onSubmitCategory = async (data: CategoryInputs) => {
     try {
       const userId = await getUserId();
@@ -130,6 +135,39 @@ const Dashboard = () => {
       setCategoryError(err.message || "Failed to add category.");
     }
   };
+
+
+  const onSubmitTransaction = async (data: TransactionInputs) => {
+    setTransactionError(null);
+    setSuccessMessage(null);
+    try {
+      const userId = await getUserId();
+      if (!userId) return navigate("/login", { replace: true });
+
+      if (!data.category || !data.amount) {
+        setTransactionError("Category and amount are required.");
+        return;
+      }
+
+      await addTransaction({
+        user_id: userId,
+        category: data.category,
+        amount: Number(data.amount),
+        note: data.note,
+        created_at: new Date().toISOString(),
+      });
+
+      resetTransaction();
+      setSuccessMessage("Transaction added successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+      fetchCategories();
+    } catch (err: any) {
+      setTransactionError(err.message || "Failed to add transaction.");
+    }
+  };
+
+
+
 
   const handleAddBudget = async () => {
     setLoading(true);
@@ -163,44 +201,20 @@ const Dashboard = () => {
     }
   };
 
-  const onSubmitTransaction = async (data: TransactionInputs) => {
-    setTransactionError(null);
-    setSuccessMessage(null);
-    try {
-      const userId = await getUserId();
-      if (!userId) return navigate("/login", { replace: true });
+  
+      const chartData = useMemo(() => {
 
-      if (!data.category || !data.amount) {
-        setTransactionError("Category and amount are required.");
-        return;
-      }
+      return categories.map(cat => ({
+        name: cat.title,
+        totalBudget: cat.total_budget_amount,
+        activeBudget: cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0,
+        budgetCount: cat.budget_count,
+        totalTransactions: cat.total_transactions_amount || 0,
+        transactionCount: cat.trasactions_count || 0,
+        id: cat.id,
+      }));
+    }, [categories]);
 
-      await addTransaction({
-        user_id: userId,
-        category: data.category,
-        amount: Number(data.amount),
-        note: data.note,
-        date: new Date().toISOString(),
-      });
-
-      resetTransaction();
-      setSuccessMessage("Transaction added successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-      fetchCategories();
-    } catch (err: any) {
-      setTransactionError(err.message || "Failed to add transaction.");
-    }
-  };
-
-  const chartData = categories.map(cat => ({
-    name: cat.title,
-    totalBudget: cat.total_budget_amount,
-    activeBudget: cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0,
-    budgetCount: cat.budget_count,
-    totalTransactions: cat.total_transactions_amount || 0,
-    transactionCount: cat.trasactions_count || 0,
-    id: cat.id,
-  }));
 
   const handleBarClick = (data: any) => {
     if (data?.id) navigate(`/category/${data.id}`);
@@ -338,20 +352,27 @@ const Dashboard = () => {
                 onSubmit={handleTransactionSubmit(onSubmitTransaction)}
                 className="flex flex-col gap-3"
               >
-                <Select value={budgetCategory} onValueChange={setBudgetCategory}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length > 0 ? (
-                      categories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.title}>{cat.title}</SelectItem>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500 px-2 py-1">No categories found</p>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Select
+              value={budgetCategory}
+              onValueChange={(value) => {
+                setBudgetCategory(value);  
+                setValue("category", value); 
+              }}
+            >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.length > 0 ? (
+                    categories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.title}>{cat.title}</SelectItem>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 px-2 py-1">No categories found</p>
+                  )}
+                </SelectContent>
+              </Select>
+
 
                 <Input
                   type="number"

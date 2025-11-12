@@ -331,7 +331,7 @@ const CategoryDetail = () => {
                   <TableRow key={t.id}>
                     <TableCell>{t.id}</TableCell>
                     <TableCell>${t.amount.toFixed(2)}</TableCell>
-                    <TableCell>{t.date}</TableCell>
+                    <TableCell>{t.created_at}</TableCell>
                     <TableCell className="text-right">
                       <Popover>
                         <PopoverTrigger asChild>
