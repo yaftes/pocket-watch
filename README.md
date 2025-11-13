@@ -16,6 +16,11 @@ Pocket Watch is a smart expense tracking and budgeting application that helps us
 
 🌙 Modern UI — Built using ShadCN UI, React, and TailwindCSS for a clean and responsive experience.
 
+# Screenshots
+
+![Home Page](screenshots/home_page.png)
+![Category Detail](screenshots/category_detail.png)
+
 🧠 Tech Stack
 
 Frontend: React + Vite
@@ -34,7 +39,7 @@ Charts: Chart.js or Recharts
 
 Clone the repository
 
-git clone https://github.com/yourusername/pocket-watch.git
+git clone https://github.com/yaftes/pocket-watch.git
 cd pocket-watch
 
 Install dependencies
