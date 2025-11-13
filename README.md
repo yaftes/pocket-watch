@@ -1,60 +1,52 @@
-pocket-watch/
+# Pocket Watch
 
-├── public/
-│   ├── index.html
-│   └── assets/          # Static assets like images, icons
-├── src/
-│   ├── api/             # API calls and Supabase integration
-│   │   ├── supabaseClient.js
-│   │   └── transactionsApi.js
-│   │
-│   ├── app/             # Redux store setup
-│   │   ├── store.js
-│   │   └── rootReducer.js
-│   │
-│   ├── components/      # Reusable UI components
-│   │   ├── Button/
-│   │   │   └── Button.jsx
-│   │   ├── Modal/
-│   │   │   └── Modal.jsx
-│   │   └── ...          # Any other generic components
-│   │
-│   ├── features/        # Redux feature slices + related components
-│   │   ├── transactions/
-│   │   │   ├── transactionsSlice.js
-│   │   │   ├── TransactionList.jsx
-│   │   │   └── TransactionForm.jsx
-│   │   ├── budgets/
-│   │   │   ├── budgetsSlice.js
-│   │   │   └── BudgetChart.jsx
-│   │   └── user/
-│   │       ├── userSlice.js
-│   │       └── UserProfile.jsx
-│   │
-│   ├── pages/           # Main route pages
-│   │   ├── Dashboard.jsx
-│   │   ├── Login.jsx
-│   │   ├── Signup.jsx
-│   │   └── Settings.jsx
-│   │
-│   ├── routes/          # React Router setup
-│   │   └── AppRoutes.jsx
-│   │
-│   ├── utils/           # Utility functions
-│   │   ├── parseReceipt.js   # Tesseract.js text parsing
+Pocket Watch is a smart expense tracking and budgeting application that helps users manage their finances efficiently. It provides features like OCR-based receipt scanning, categorized transactions, spending insights, and a simple, elegant interface built with modern tools.
 
-│   │   └── formatDate.js
-│   │
-│   ├── hooks/           # Custom hooks
-│   │   ├── useTransactions.js
-│   │   └── useBudget.js
-│   │
-│   ├── styles/          # Global styles (Tailwind + shadcn overrides)
-│   │   └── index.css
-│   │
-│   ├── App.jsx
-│   └── main.jsx
-│
-├── .env                 # Environment variables (Supabase keys, etc.)
-├── package.json
-└── README.md
+🚀 Features
+
+💸 Add Transactions Easily — Record income and expenses with just a few taps.
+
+🧾 OCR Receipt Scanning — Extract transaction details directly from receipt images using Tesseract.js.
+
+📊 Visual Budget Insights — View your spending habits with clean charts and analytics.
+
+🗂️ Category Management — Organize expenses by categories like Food, Transport, Bills, etc.
+
+🔒 Secure User Authentication — Login and manage your data safely (e.g., via Supabase).
+
+🌙 Modern UI — Built using ShadCN UI, React, and TailwindCSS for a clean and responsive experience.
+
+🧠 Tech Stack
+
+Frontend: React + Vite
+
+UI Components: ShadCN UI + TailwindCSS
+
+OCR Engine: Tesseract.js
+
+Backend: Supabase (Auth + Database)
+
+State Management: React Hooks / Context API
+
+Charts: Chart.js or Recharts
+
+⚙️ Installation & Setup
+
+Clone the repository
+
+git clone https://github.com/yourusername/pocket-watch.git
+cd pocket-watch
+
+Install dependencies
+
+npm install
+
+Set up environment variables
+Create a .env file in the root folder and add:
+
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_key
+
+Run the app
+
+npm run dev
