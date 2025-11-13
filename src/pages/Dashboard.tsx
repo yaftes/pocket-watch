@@ -6,7 +6,7 @@ import {
   type CategoryDashboardInfo,
 } from "../api/category_api";
 import { addBudget } from "../api/budget_api";
-import { addTransaction } from "../api/transaction_api"; // make sure you have this API
+import { addTransaction } from "../api/transaction_api";
 import { getUserId, getUserInfo, isLoggedIn, signOut } from "../api/auth_api";
 import { useNavigate } from "react-router-dom";
 import {
@@ -55,21 +55,70 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Upload } from "lucide-react";
+import Tesseract from "tesseract.js";
 
 
+const categoriesList = ["Food", "Transport", "Shopping", "Entertainment", "Utilities", "Other"];
 
+const extractAmount = (text: string): number => {
+  const amountRegex = /(total|amount|balance)?\s*[:$]?\s*(\d+(\.\d{1,2})?)/gi;
+  let match;
+  let lastAmount = 0;
+  while ((match = amountRegex.exec(text)) !== null) {
+    lastAmount = parseFloat(match[2]);
+  }
+  return lastAmount;
+};
+
+const extractDate = (text: string): string => {
+  const dateRegex =
+    /(\d{4}[-/]\d{1,2}[-/]\d{1,2})|(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/;
+  const match = text.match(dateRegex);
+  return match ? match[0] : new Date().toISOString().split("T")[0];
+};
+
+const extractCategory = (text: string): string => {
+  for (const cat of categoriesList) {
+    if (text.toLowerCase().includes(cat.toLowerCase())) {
+      return cat;
+    }
+  }
+  return "Other";
+};
+
+const extractTextFromImage = async (file: File | string): Promise<string> => {
+  try {
+    const { data } = await Tesseract.recognize(file, "eng", {
+      logger: (m) => console.log(m),
+    });
+    return data.text;
+  } catch (error) {
+    console.error("Error extracting text:", error);
+    return "";
+  }
+};
+
+const parseReceiptText = (text: string, userId: string) => {
+  const amount = extractAmount(text);
+  const date = extractDate(text);
+  const category = extractCategory(text);
+
+  return {
+    user_id: userId,
+    category,
+    amount,
+    note: text.slice(0, 150),
+    created_at: date,
+  };
+};
 
 
 type CategoryInputs = { title: string };
-
 type TransactionInputs = { category: string; amount: number; note: string };
 
 const Dashboard = () => {
-  
   const { register, handleSubmit, formState: { errors }, reset } = useForm<CategoryInputs>();
-
   const { register: registerTransaction, handleSubmit: handleTransactionSubmit, reset: resetTransaction, setValue } = useForm<TransactionInputs>();
-
 
   const [categories, setCategories] = useState<CategoryDashboardInfo[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -144,11 +193,6 @@ const Dashboard = () => {
       const userId = await getUserId();
       if (!userId) return navigate("/login", { replace: true });
 
-      if (!data.category || !data.amount) {
-        setTransactionError("Category and amount are required.");
-        return;
-      }
-
       await addTransaction({
         user_id: userId,
         category: data.category,
@@ -165,9 +209,6 @@ const Dashboard = () => {
       setTransactionError(err.message || "Failed to add transaction.");
     }
   };
-
-
-
 
   const handleAddBudget = async () => {
     setLoading(true);
@@ -201,20 +242,45 @@ const Dashboard = () => {
     }
   };
 
-  
-      const chartData = useMemo(() => {
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrText, setOcrText] = useState<string>("");
 
-      return categories.map(cat => ({
-        name: cat.title,
-        totalBudget: cat.total_budget_amount,
-        activeBudget: cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0,
-        budgetCount: cat.budget_count,
-        totalTransactions: cat.total_transactions_amount || 0,
-        transactionCount: cat.trasactions_count || 0,
-        id: cat.id,
-      }));
-    }, [categories]);
+  const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setOcrLoading(true);
+    try {
+      const userId = await getUserId();
+      const text = await extractTextFromImage(file);
+      setOcrText(text);
+      const parsed = parseReceiptText(text, userId!);
 
+      setValue("category", parsed.category);
+      setValue("amount", parsed.amount);
+      setValue("note", parsed.note);
+
+      await addTransaction(parsed);
+      setSuccessMessage("Transaction added from receipt!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+      fetchCategories();
+    } catch (error: any) {
+      setTransactionError("Failed to process receipt. Try again.");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const chartData = useMemo(() => {
+    return categories.map(cat => ({
+      name: cat.title,
+      totalBudget: cat.total_budget_amount,
+      activeBudget: cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0,
+      budgetCount: cat.budget_count,
+      totalTransactions: cat.total_transactions_amount || 0,
+      transactionCount: cat.trasactions_count || 0,
+      id: cat.id,
+    }));
+  }, [categories]);
 
   const handleBarClick = (data: any) => {
     if (data?.id) navigate(`/category/${data.id}`);
@@ -225,6 +291,7 @@ const Dashboard = () => {
       <header className="flex justify-between items-start mb-6 gap-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <div className="flex gap-4 items-start">
+         
           <Menubar>
             <MenubarMenu>
               <MenubarTrigger>Create New Category</MenubarTrigger>
@@ -238,6 +305,7 @@ const Dashboard = () => {
             </MenubarMenu>
           </Menubar>
 
+       
           <Menubar>
             <MenubarMenu>
               <MenubarTrigger>Create New Budget</MenubarTrigger>
@@ -265,7 +333,6 @@ const Dashboard = () => {
                 <Button onClick={handleAddBudget} disabled={loading} className="bg-black text-white hover:bg-gray-900">
                   {loading ? "Creating..." : "Add Budget"}
                 </Button>
-
                 {budgetError && <p className="text-red-500 text-sm">{budgetError}</p>}
               </MenubarContent>
             </MenubarMenu>
@@ -317,11 +384,11 @@ const Dashboard = () => {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="totalBudget" fill="#2563eb" name="Total Budget" radius={[4,4,0,0]} />
+              <Bar dataKey="totalBudget" fill="#2563eb" name="Total Budget $" radius={[4,4,0,0]} />
               <Bar dataKey="activeBudget" fill="#16a34a" name="Active Budget" radius={[4,4,0,0]} />
-              <Bar dataKey="budgetCount" fill="#f59e0b" name="Number of Budgets" radius={[4,4,0,0]} />
-              <Bar dataKey="totalTransactions" fill="#ef4444" name="Total Transactions" radius={[4,4,0,0]} />
-              <Bar dataKey="transactionCount" fill="#8b5cf6" name="Number of Transactions" radius={[4,4,0,0]} />
+              <Bar dataKey="budgetCount" fill="#f59e0b" name="Budgets" radius={[4,4,0,0]} />
+              <Bar dataKey="totalTransactions" fill="#ef4444" name="Total Transactions $" radius={[4,4,0,0]} />
+              <Bar dataKey="transactionCount" fill="#8b5cf6" name="Transactions" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -334,7 +401,6 @@ const Dashboard = () => {
           <DrawerTrigger asChild>
             <Button className="bg-black text-white hover:bg-gray-800">Make Transaction</Button>
           </DrawerTrigger>
-
           <DrawerContent className="p-6">
             <DrawerHeader>
               <DrawerTitle>Create a New Transaction</DrawerTitle>
@@ -342,53 +408,38 @@ const Dashboard = () => {
             </DrawerHeader>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 cursor-pointer">
+              
+             <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 cursor-pointer">
                 <Upload className="h-10 w-10 text-gray-500 mb-2" />
-                <p className="text-sm text-gray-500">Click or drag to upload receipt</p>
-                <Input type="file" className="hidden" />
-              </div>
+                <p className="text-sm text-gray-500">{ocrLoading ? "Reading receipt..." : "Click or drag to upload receipt"}</p>
+                <Input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
+              </label>
 
-              <form
-                onSubmit={handleTransactionSubmit(onSubmitTransaction)}
-                className="flex flex-col gap-3"
-              >
+              <form onSubmit={handleTransactionSubmit(onSubmitTransaction)} className="flex flex-col gap-3">
                 <Select
-              value={budgetCategory}
-              onValueChange={(value) => {
-                setBudgetCategory(value);  
-                setValue("category", value); 
-              }}
-            >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.length > 0 ? (
-                    categories.map(cat => (
-                      <SelectItem key={cat.id} value={cat.title}>{cat.title}</SelectItem>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 px-2 py-1">No categories found</p>
-                  )}
-                </SelectContent>
-              </Select>
+                  value={budgetCategory}
+                  onValueChange={(value) => {
+                    setBudgetCategory(value);
+                    setValue("category", value);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.length > 0 ? (
+                      categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.title}>{cat.title}</SelectItem>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 px-2 py-1">No categories found</p>
+                    )}
+                  </SelectContent>
+                </Select>
 
-
-                <Input
-                  type="number"
-                  placeholder="Amount"
-                  {...registerTransaction("amount", { required: true })}
-                />
-
-                <Input
-                  placeholder="Note"
-                  {...registerTransaction("note")}
-                />
-
-                <Button type="submit" className="bg-black text-white hover:bg-gray-800">
-                  Submit Transaction
-                </Button>
-
+                <Input type="number" placeholder="Amount" {...registerTransaction("amount", { required: true })} />
+                <Input placeholder="Note" {...registerTransaction("note")} />
+                <Button type="submit" className="bg-black text-white hover:bg-gray-800">Submit Transaction</Button>
               </form>
             </div>
 

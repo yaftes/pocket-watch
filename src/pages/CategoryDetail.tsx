@@ -151,6 +151,7 @@ const CategoryDetail = () => {
 
   return (
     <div className="p-6 space-y-8">
+
       <Card className="shadow-lg border-none overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-black to-gray-800 text-white flex justify-between items-center p-6">
           <div>
@@ -227,6 +228,7 @@ const CategoryDetail = () => {
           </div>
         </CardContent>
       </Card>
+      
 
       <Card className="bg-white shadow-md border">
         <CardHeader>
@@ -320,7 +322,6 @@ const CategoryDetail = () => {
               </TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Transaction ID</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -329,7 +330,6 @@ const CategoryDetail = () => {
               <TableBody>
                 {transactions.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>{t.id}</TableCell>
                     <TableCell>${t.amount.toFixed(2)}</TableCell>
                     <TableCell>{t.created_at}</TableCell>
                     <TableCell className="text-right">
