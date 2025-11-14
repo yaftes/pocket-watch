@@ -43,11 +43,11 @@ export const addCategory = async (title: string, userId: string) => {
 };
 
 
-export const deleteCategory = async (id: string) => {
+export const deleteCategory = async (id: string,userId : string) => {
   const { error } = await supabase
     .from("categories")
     .delete()
-    .eq("id", id);
+    .eq("id", id).eq('user_id',userId);
 
   if (error) throw error;
   return true;

@@ -13,6 +13,8 @@ export type Budget = {
 };
 
 
+
+
 export const getBudgets = async (userId: string) => {
   const { data, error } = await supabase
     .from('budgets')

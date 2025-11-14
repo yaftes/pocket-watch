@@ -5,6 +5,15 @@ import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { supabase } from "../api/supabase_client";
 import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { cn } from "../lib/utils";
 
 type RegisterInputs = {
   name: string;      
@@ -52,88 +61,146 @@ const Register = () => {
   };
 
   return (
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-10 h-64 w-64 -translate-x-1/2 rounded-full bg-emerald-400/20 blur-3xl" />
+        <div className="absolute -right-10 bottom-10 h-72 w-72 rounded-full bg-indigo-600/20 blur-3xl" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-slate-950 via-slate-900/80 to-transparent" />
+      </div>
 
-    <div className="min-h-screen flex justify-center items-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white p-6 rounded-xl shadow">
-        <h1 className="text-3xl font-semibold text-center mb-6">Register</h1>
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-12 px-4 py-12 lg:flex-row lg:items-center">
+        <Card className="order-2 w-full max-w-md border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur lg:order-1">
+          <CardHeader className="space-y-2 text-center">
+            <CardTitle className="text-2xl font-semibold">Create account</CardTitle>
+            <CardDescription className="text-white/70">
+              Set up your credentials to unlock budgets, OCR, and more.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Ava Finance"
+                  className="border-white/20 bg-white/10 text-white placeholder:text-white/60"
+                  {...register("name", { required: "Name is required" })}
+                />
+                {errors.name && (
+                  <p className="text-sm text-rose-300">{errors.name.message}</p>
+                )}
+              </div>
 
-        <form
-          noValidate
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-4"
-        >
-     
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              {...register("name", { required: "Name is required" })}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name.message}</p>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="border-white/20 bg-white/10 text-white placeholder:text-white/60"
+                  {...register("email", {
+                    required: "Email is required",
+                    pattern: {
+                      value: /^[^@]+@[^@]+\.[^@]+$/,
+                      message: "Enter a valid email",
+                    },
+                  })}
+                />
+                {errors.email && (
+                  <p className="text-sm text-rose-300">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="border-white/20 bg-white/10 text-white placeholder:text-white/60"
+                  {...register("password", {
+                    required: "Password is required",
+                    minLength: {
+                      value: 6,
+                      message: "Password must be at least 6 characters",
+                    },
+                  })}
+                />
+                {errors.password && (
+                  <p className="text-sm text-rose-300">{errors.password.message}</p>
+                )}
+              </div>
+
+              {serverError && (
+                <Alert className="border-red-400/50 bg-red-500/10 text-white">
+                  <AlertTitle>Registration failed</AlertTitle>
+                  <AlertDescription>{serverError}</AlertDescription>
+                </Alert>
+              )}
+
+              {successMsg && (
+                <Alert className="border-emerald-400/50 bg-emerald-500/10 text-white">
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>{successMsg}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                className={cn(
+                  "w-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 text-slate-900 shadow-lg shadow-emerald-500/40 transition hover:-translate-y-0.5",
+                  loading && "opacity-70"
+                )}
+                disabled={loading}
+              >
+                {loading ? "Registering..." : "Secure my account"}
+              </Button>
+
+              <div className="text-center text-sm text-white/70">
+                Already a member?{" "}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-indigo-200 underline-offset-4 hover:text-white"
+                  onClick={() => navigate("/login", { replace: true })}
+                >
+                  Login
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="order-1 max-w-xl space-y-6 text-center lg:order-2 lg:text-right">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-200">
+            Launch mode
+          </p>
+          <h1 className="text-4xl font-bold leading-tight md:text-5xl">
+            Craft budgets, track spending, and automate your receipts.
+          </h1>
+          <p className="text-base text-white/80">
+            Register once and sync across devices instantly. Pocket Watch keeps
+            your financial playbook polished with modern UI, real-time data, and
+            secure Supabase auth.
+          </p>
+          <div className="grid gap-3 text-left text-sm text-white/70 lg:justify-end">
+            {[
+              "Encrypted Supabase authentication",
+              "Mobile-ready dashboards",
+              "Granular transaction logs",
+              "Receipt OCR with AI parsing",
+            ].map((item) => (
+              <div
+                key={item}
+                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+              >
+                <span>{item}</span>
+                <span className="text-xs text-emerald-200">Ready</span>
+              </div>
+            ))}
           </div>
-
-      
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              {...register("email", {
-                required: "Email is required",
-                pattern: {
-                  value: /^[^@]+@[^@]+\.[^@]+$/,
-                  message: "Enter a valid email",
-                },
-              })}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              {...register("password", {
-                required: "Password is required",
-                minLength: {
-                  value: 6,
-                  message: "Password must be at least 6 characters",
-                },
-              })}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-500">
-                {errors.password.message}
-              </p>
-            )}
-          </div>
-
-          {serverError && (
-            <p className="text-sm text-red-500 text-center">{serverError}</p>
-          )}
-
-          {successMsg && (
-            <p className="text-sm text-green-600 text-center">{successMsg}</p>
-          )}
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Registering..." : "Register"}
-          </Button>
-
-          <Button className="w-full" onClick={() => navigate('/login',{replace : true})}>
-              Login
-          </Button>
-
-        </form>
+        </div>
       </div>
     </div>
   );

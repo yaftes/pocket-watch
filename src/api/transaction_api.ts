@@ -75,6 +75,7 @@ export const addTransaction = async (transaction: Transaction) => {
 
  
   const { data, error } = await supabase
+
     .from("transactions")
     .insert([
       {
@@ -97,6 +98,7 @@ export const addTransaction = async (transaction: Transaction) => {
 
 
 export const updateTransaction = async (
+
   id: string,
   updatedData: Partial<{
     amount: number;
@@ -111,6 +113,7 @@ export const updateTransaction = async (
 
   if (updatedData.category) {
     const { data: categoryData, error: catError } = await supabase
+
       .from("categories")
       .select("*")
       .eq("user_id", userId)

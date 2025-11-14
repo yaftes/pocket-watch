@@ -7,7 +7,7 @@ import Dashboard from "../pages/Dashboard";
 import CategoryDetail from "../pages/CategoryDetail";
 
 import { Route, Routes } from "react-router-dom";
-import Profile from "../pages/Profile";
+import Logout from "../pages/Logout";
 
 const AppRoutes = () => {
   return (
@@ -21,10 +21,10 @@ const AppRoutes = () => {
     
       <Route element={<PrivateRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<Profile/>} />
         <Route path="/category/:id" element={<CategoryDetail />} />
       </Route>
       
+      <Route path="/logout" element={<Logout />} />
       <Route path="/" element={<Login />} />
     </Routes>
   );
