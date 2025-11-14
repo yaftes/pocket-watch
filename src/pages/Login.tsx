@@ -72,7 +72,7 @@ const Login = () => {
           </h1>
           <p className="text-base text-white/80">
             Plug into real-time dashboards, automate receipts, and keep every
-            budget behaving—even on mobile. Sign in to continue orchestrating
+            budget. Sign in to continue orchestrating
             your spending strategy.
           </p>
           <div className="grid gap-4 text-left text-sm text-white/70 md:grid-cols-2">

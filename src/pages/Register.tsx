@@ -72,9 +72,7 @@ const Register = () => {
         <Card className="order-2 w-full max-w-md border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur lg:order-1">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-semibold">Create account</CardTitle>
-            <CardDescription className="text-white/70">
-              Set up your credentials to unlock budgets, OCR, and more.
-            </CardDescription>
+          
           </CardHeader>
           <CardContent>
             <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -154,7 +152,7 @@ const Register = () => {
                 )}
                 disabled={loading}
               >
-                {loading ? "Registering..." : "Secure my account"}
+                {loading ? "Registering..." : "Register"}
               </Button>
 
               <div className="text-center text-sm text-white/70">
@@ -181,25 +179,9 @@ const Register = () => {
           </h1>
           <p className="text-base text-white/80">
             Register once and sync across devices instantly. Pocket Watch keeps
-            your financial playbook polished with modern UI, real-time data, and
-            secure Supabase auth.
+            your financial playbook polished with modern UI and real-time data.
           </p>
-          <div className="grid gap-3 text-left text-sm text-white/70 lg:justify-end">
-            {[
-              "Encrypted Supabase authentication",
-              "Mobile-ready dashboards",
-              "Granular transaction logs",
-              "Receipt OCR with AI parsing",
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3"
-              >
-                <span>{item}</span>
-                <span className="text-xs text-emerald-200">Ready</span>
-              </div>
-            ))}
-          </div>
+          
         </div>
       </div>
     </div>

@@ -22,6 +22,8 @@ Pocket Watch is a smart expense tracking and budgeting application that helps us
 
 ![Home Page](screenshots/home_page.png)
 ![Category Detail](screenshots/category_detail.png)
+![Login Page](screenshots/login_page.png)
+![Register Page](screenshots/register_page.png)
 
 🧠 Tech Stack
 
@@ -57,6 +59,7 @@ VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_key
 
 # Optional: For AI-powered receipt parsing and insights (FREE with Google Gemini)
+
 VITE_GEMINI_API_KEY=your_gemini_api_key
 
 Run the app
@@ -68,6 +71,7 @@ npm run dev
 Pocket Watch includes powerful AI features powered by OpenAI:
 
 ### Automatic Receipt Processing
+
 - **OCR + AI Extraction**: Upload a receipt image and the app will:
   - Extract text using Tesseract.js OCR
   - Use AI to intelligently extract amount, date, merchant, and items
@@ -75,11 +79,13 @@ Pocket Watch includes powerful AI features powered by OpenAI:
   - Create the transaction automatically (no manual input needed!)
 
 ### Smart Categorization
+
 - AI analyzes receipt content to match transactions to the most appropriate category
 - Falls back to keyword-based categorization if AI is unavailable
 - Learns from your existing categories
 
 ### Spending Insights
+
 - Get real-time budget warnings when approaching limits
 - Receive spending pattern analysis
 - AI-powered suggestions for budget optimization
