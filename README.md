@@ -20,7 +20,8 @@ Pocket Watch is a smart expense tracking and budgeting application that helps us
 
 # Screenshots
 
-![Home Page](screenshots/home_page.png)
+![Home Page](screenshots/home_page_light.png)
+![Home Page](screenshots/home_page_dark.png)
 ![Category Detail](screenshots/category_detail.png)
 ![Login Page](screenshots/login_page.png)
 ![Register Page](screenshots/register_page.png)

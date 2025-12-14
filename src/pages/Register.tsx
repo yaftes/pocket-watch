@@ -5,12 +5,15 @@ import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { supabase } from "../api/supabase_client";
 import { useNavigate } from "react-router-dom";
+
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
+
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { cn } from "../lib/utils";
 
@@ -182,8 +185,9 @@ const Register = () => {
             Register once and sync across devices instantly. Pocket Watch keeps
             your financial playbook polished with modern UI and real-time data.
           </p>
-          
         </div>
+
+        
       </div>
     </div>
   );

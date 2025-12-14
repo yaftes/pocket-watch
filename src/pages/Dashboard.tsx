@@ -90,10 +90,7 @@ import { extractTextFromImage, parseReceiptText } from "../utils/receipt";
 import type { SpendingInsight } from "../utils/ai_service";
 
 
-
-
 type Theme = "dark" | "light" | "system";
-
 
 const ThemeProviderContext = createContext<{
   theme: Theme;
@@ -104,13 +101,11 @@ const ThemeProviderContext = createContext<{
 });
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("vite-ui-theme") as Theme) || "system"
   );
 
   useEffect(() => {
-
     const root = window.document.documentElement;
     root.classList.remove("light", "dark");
 
@@ -125,7 +120,6 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
     root.classList.add(theme);
   }, [theme]);
-
 
   const value = useMemo(
     () => ({
@@ -149,9 +143,7 @@ const useTheme = () => useContext(ThemeProviderContext);
 
 
 const StatsSection = React.memo(({ summary }: { summary: any }) => {
-
   const stats = [
-
     {
       label: "Total Budget",
       hint: "Across all categories",
@@ -177,7 +169,6 @@ const StatsSection = React.memo(({ summary }: { summary: any }) => {
       icon: Layers,
       isCount: true,
     },
-
   ];
 
   const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -187,7 +178,6 @@ const StatsSection = React.memo(({ summary }: { summary: any }) => {
   });
 
   return (
-
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map(({ label, hint, value, icon: Icon, isCount }) => (
         <Card
@@ -211,7 +201,6 @@ const StatsSection = React.memo(({ summary }: { summary: any }) => {
     </section>
   );
 });
-
 
 
 const SpendingChart = React.memo(
@@ -289,11 +278,8 @@ const SpendingChart = React.memo(
 );
 
 
-
 const CategoryForm = React.memo(
-
   ({ onAdd }: { onAdd: (title: string) => Promise<void> }) => {
-
     const {
       register,
       handleSubmit,
@@ -324,9 +310,7 @@ const CategoryForm = React.memo(
       </form>
     );
   }
-
 );
-
 
 
 const BudgetForm = React.memo(
@@ -458,7 +442,6 @@ const TransactionDrawer = React.memo(
     const [msg, setMsg] = useState<string | null>(null);
     const categoryValue = watch("category");
 
-
     const handleReceiptUpload = async (
       event: React.ChangeEvent<HTMLInputElement>
     ) => {
@@ -484,7 +467,9 @@ const TransactionDrawer = React.memo(
           setValue("note", parsed.note);
           if (parsed.created_at) setDate(new Date(parsed.created_at));
 
-          setMsg(`Scanned: $${parsed.amount} - ${parsed.merchant || "Unknown"}`);
+          setMsg(
+            `Scanned: $${parsed.amount} - ${parsed.merchant || "Unknown"}`
+          );
         }
       } catch (err) {
         console.error(err);
@@ -625,17 +610,20 @@ const TransactionDrawer = React.memo(
 
 
 const DashboardContent = () => {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme(); 
   const navigate = useNavigate();
+
   const [categories, setCategories] = useState<CategoryDashboardInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState("");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Insights State
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [showInsights, setShowInsights] = useState(false);
 
-
+  // Helper to fetch data
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -665,6 +653,7 @@ const DashboardContent = () => {
     fetchData();
   }, [fetchData]);
 
+ 
   const chartData = useMemo(() => {
     return categories.map((cat) => ({
       name: cat.title,
@@ -698,7 +687,6 @@ const DashboardContent = () => {
       }
     );
   }, [categories]);
-
 
 
   const handleAddCategory = useCallback(
@@ -784,7 +772,7 @@ const DashboardContent = () => {
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 lg:px-6">
         
-        {/* Header */}
+    
         <header className="rounded-xl border bg-card p-6 shadow-sm">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
@@ -798,7 +786,6 @@ const DashboardContent = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Theme Toggle */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -820,7 +807,7 @@ const DashboardContent = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* User Menu */}
+             
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 px-2">
@@ -846,7 +833,7 @@ const DashboardContent = () => {
           </div>
         </header>
 
-        {/* Alerts */}
+      
         {successMsg && (
           <Alert className="border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <AlertTitle>Success</AlertTitle>
@@ -860,6 +847,7 @@ const DashboardContent = () => {
           </Alert>
         )}
 
+        
         {showInsights && insights.length > 0 && (
           <Card className="border-indigo-500/30 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
             <CardHeader className="flex flex-row items-center justify-between py-4">
@@ -891,10 +879,13 @@ const DashboardContent = () => {
           </Card>
         )}
 
+       
         <StatsSection summary={summary} />
 
+       
         <div className="grid gap-6 lg:grid-cols-3">
           
+         
           <Card className="shadow-lg lg:col-span-2">
             <CardHeader>
               <CardTitle>Spending Pulse</CardTitle>
@@ -914,6 +905,7 @@ const DashboardContent = () => {
   
           <div className="space-y-6">
             
+          
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -937,7 +929,7 @@ const DashboardContent = () => {
               </CardContent>
             </Card>
 
-            {/* Budget Architect */}
+            
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle>Budget Architect</CardTitle>
@@ -953,6 +945,7 @@ const DashboardContent = () => {
     </div>
   );
 };
+
 
 const Dashboard = () => {
   return (
