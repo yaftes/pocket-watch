@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  createContext,
+  useContext,
+} from "react";
 import { useForm } from "react-hook-form";
 import {
   addCategory,
@@ -61,6 +68,9 @@ import {
   AlertTriangle,
   Info,
   X,
+  Moon,
+  Sun,
+  Laptop,
 } from "lucide-react";
 import {
   Card,
@@ -69,50 +79,565 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
 import { Calendar } from "../components/ui/calendar";
 import { cn } from "../lib/utils";
 import { extractTextFromImage, parseReceiptText } from "../utils/receipt";
 import type { SpendingInsight } from "../utils/ai_service";
 
 
-type CategoryInputs = { title: string };
-type TransactionInputs = { category: string; amount: number; note?: string };
 
-const Dashboard = () => {
-  const createDefaultRange = () => {
-    const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setDate(today.getDate() + 30);
-    return { from: today, to: nextMonth };
-  };
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<CategoryInputs>();
-  const {
-    register: registerTransaction,
-    handleSubmit: handleTransactionSubmit,
-    reset: resetTransaction,
-    setValue,
-  } = useForm<TransactionInputs>();
 
-  const [categories, setCategories] = useState<CategoryDashboardInfo[]>([]);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [budgetError, setBudgetError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetchingCategories, setFetchingCategories] = useState(true);
+type Theme = "dark" | "light" | "system";
 
-  const [budgetCategory, setBudgetCategory] = useState("");
-  const [budgetAmount, setBudgetAmount] = useState<number | "">("");
-  const [budgetRange, setBudgetRange] = useState<DateRange | undefined>(() => createDefaultRange());
-  const [transactionCategory, setTransactionCategory] = useState("");
-  const [transactionDate, setTransactionDate] = useState<Date | undefined>(new Date());
-  const [userInfo, setUserInfo] = useState("");
 
+const ThemeProviderContext = createContext<{
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}>({
+  theme: "system",
+  setTheme: () => null,
+});
+
+const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem("vite-ui-theme") as Theme) || "system"
+  );
+
+  useEffect(() => {
+
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? "dark"
+        : "light";
+      root.classList.add(systemTheme);
+      return;
+    }
+
+    root.classList.add(theme);
+  }, [theme]);
+
+
+  const value = useMemo(
+    () => ({
+      theme,
+      setTheme: (theme: Theme) => {
+        localStorage.setItem("vite-ui-theme", theme);
+        setTheme(theme);
+      },
+    }),
+    [theme]
+  );
+
+  return (
+    <ThemeProviderContext.Provider value={value}>
+      {children}
+    </ThemeProviderContext.Provider>
+  );
+};
+
+const useTheme = () => useContext(ThemeProviderContext);
+
+
+const StatsSection = React.memo(({ summary }: { summary: any }) => {
+
+  const stats = [
+
+    {
+      label: "Total Budget",
+      hint: "Across all categories",
+      value: summary.totalBudget,
+      icon: Wallet,
+    },
+    {
+      label: "Active Budget",
+      hint: "Live envelopes",
+      value: summary.activeBudget,
+      icon: TrendingUp,
+    },
+    {
+      label: "Transactions",
+      hint: `${summary.transactionsCount} logged`,
+      value: summary.totalTransactions,
+      icon: Sparkles,
+    },
+    {
+      label: "Categories",
+      hint: "Personalized groups",
+      value: summary.categoriesCount,
+      icon: Layers,
+      isCount: true,
+    },
+
+  ];
+
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
+  return (
+
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {stats.map(({ label, hint, value, icon: Icon, isCount }) => (
+        <Card
+          key={label}
+          className="bg-card text-card-foreground shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {label}
+            </CardTitle>
+            <Icon className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isCount ? value : currencyFormatter.format(value)}
+            </div>
+            <p className="text-xs text-muted-foreground">{hint}</p>
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+});
+
+
+
+const SpendingChart = React.memo(
+  ({
+    data,
+    loading,
+    onBarClick,
+  }: {
+    data: any[];
+    loading: boolean;
+    onBarClick: (id: string) => void;
+  }) => {
+    if (loading) return <ChartSkeleton />;
+
+    if (data.length === 0) {
+      return (
+        <div className="flex h-[420px] items-center justify-center rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+          No categories to display yet. Start by creating your first category.
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-[420px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            onClick={(e) => {
+              if (e?.activePayload?.[0]?.payload?.id) {
+                onBarClick(e.activePayload[0].payload.id);
+              }
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12 }}
+              className="text-muted-foreground"
+            />
+            <YAxis className="text-muted-foreground" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--popover))",
+                borderColor: "hsl(var(--border))",
+                color: "hsl(var(--popover-foreground))",
+                borderRadius: "8px",
+              }}
+              cursor={{ fill: "hsl(var(--muted)/0.3)" }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "20px" }} />
+            <Bar
+              dataKey="totalBudget"
+              fill="hsl(var(--primary))"
+              name="Total Budget $"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              dataKey="activeBudget"
+              fill="#10b981"
+              name="Active Budget $"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              dataKey="totalTransactions"
+              fill="#ef4444"
+              name="Spent $"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+);
+
+
+
+const CategoryForm = React.memo(
+
+  ({ onAdd }: { onAdd: (title: string) => Promise<void> }) => {
+
+    const {
+      register,
+      handleSubmit,
+      reset,
+      formState: { errors },
+    } = useForm<{ title: string }>();
+
+    const onSubmit = async (data: { title: string }) => {
+      await onAdd(data.title);
+      reset();
+    };
+
+    return (
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Input
+            placeholder="ie. Wellness, Studio Gear..."
+            {...register("title", { required: true })}
+            className="bg-background"
+          />
+          {errors.title && (
+            <p className="text-xs text-destructive">Title is required</p>
+          )}
+        </div>
+        <Button type="submit" className="w-full">
+          Create Category
+        </Button>
+      </form>
+    );
+  }
+
+);
+
+
+
+const BudgetForm = React.memo(
+  ({
+    categories,
+    onAdd,
+  }: {
+    categories: CategoryDashboardInfo[];
+    onAdd: (
+      category: string,
+      amount: number,
+      range: DateRange
+    ) => Promise<void>;
+  }) => {
+    const [category, setCategory] = useState("");
+    const [amount, setAmount] = useState<number | "">("");
+    const [range, setRange] = useState<DateRange | undefined>(() => {
+      const today = new Date();
+      const nextMonth = new Date(today);
+      nextMonth.setDate(today.getDate() + 30);
+      return { from: today, to: nextMonth };
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async () => {
+      if (!category || !amount || !range?.from || !range?.to) {
+        setError("All fields are required.");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        await onAdd(category, Number(amount), range);
+        setCategory("");
+        setAmount("");
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-full bg-background">
+            <SelectValue placeholder="Select Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.title}>
+                {cat.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          type="number"
+          placeholder="Budget Amount"
+          value={amount}
+          onChange={(e) =>
+            setAmount(e.target.value === "" ? "" : Number(e.target.value))
+          }
+          className="bg-background"
+        />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start border-dashed text-left font-normal",
+                !range?.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {range?.from && range?.to ? (
+                <>
+                  {format(range.from, "PPP")} - {format(range.to, "PPP")}
+                </>
+              ) : (
+                <span>Pick budget window</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="range"
+              numberOfMonths={2}
+              selected={range}
+              onSelect={setRange}
+            />
+          </PopoverContent>
+        </Popover>
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        <Button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:opacity-90"
+        >
+          {loading ? "Creating..." : "Add Budget"}
+        </Button>
+      </div>
+    );
+  }
+);
+
+
+const TransactionDrawer = React.memo(
+  ({
+    categories,
+    onAdd,
+    userId,
+  }: {
+    categories: CategoryDashboardInfo[];
+    onAdd: (data: any) => Promise<void>;
+    userId: string | null;
+  }) => {
+    const { register, handleSubmit, setValue, reset, watch } = useForm();
+    const [ocrLoading, setOcrLoading] = useState(false);
+    const [ocrProgress, setOcrProgress] = useState(0);
+    const [open, setOpen] = useState(false);
+    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [msg, setMsg] = useState<string | null>(null);
+    const categoryValue = watch("category");
+
+
+    const handleReceiptUpload = async (
+      event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+      const file = event.target.files?.[0];
+      if (!file || !userId) return;
+
+      setOcrLoading(true);
+      setOcrProgress(10);
+      setMsg(null);
+
+      try {
+        const text = await extractTextFromImage(file);
+        setOcrProgress(50);
+        if (!text) throw new Error("No text found.");
+
+        const availableCategories = categories.map((c) => c.title);
+        const parsed = await parseReceiptText(text, userId, availableCategories);
+        setOcrProgress(90);
+
+        if (parsed.amount) {
+          setValue("amount", parsed.amount);
+          setValue("category", parsed.category);
+          setValue("note", parsed.note);
+          if (parsed.created_at) setDate(new Date(parsed.created_at));
+
+          setMsg(`Scanned: $${parsed.amount} - ${parsed.merchant || "Unknown"}`);
+        }
+      } catch (err) {
+        console.error(err);
+        setMsg("Failed to scan receipt.");
+      } finally {
+        setOcrLoading(false);
+        setOcrProgress(0);
+        event.target.value = "";
+      }
+    };
+
+    const onSubmit = async (data: any) => {
+      await onAdd({
+        ...data,
+        created_at: date?.toISOString(),
+      });
+      reset();
+      setDate(new Date());
+      setOpen(false);
+    };
+
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>
+          <Button className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg transition hover:-translate-y-0.5">
+            Launch Composer
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent>
+          <div className="mx-auto w-full max-w-4xl">
+            <DrawerHeader>
+              <DrawerTitle>New Transaction</DrawerTitle>
+              <DrawerDescription>
+                Manually enter details or scan a receipt.
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
+              <label className="relative flex min-h-[220px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-muted/30 p-6 text-center transition hover:bg-muted/50">
+                {ocrLoading && (
+                  <div className="absolute inset-0 z-0 animate-pulse bg-primary/10" />
+                )}
+                <div className="relative z-10 flex flex-col items-center">
+                  <Upload
+                    className={cn(
+                      "mb-3 h-10 w-10 text-muted-foreground",
+                      ocrLoading && "animate-bounce text-primary"
+                    )}
+                  />
+                  <p className="mb-2 text-sm font-medium">
+                    {ocrLoading
+                      ? `Processing... ${ocrProgress}%`
+                      : "Tap to upload receipt"}
+                  </p>
+                  {ocrLoading && (
+                    <div className="mb-2 h-1 w-24 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full bg-primary transition-all duration-300"
+                        style={{ width: `${ocrProgress}%` }}
+                      />
+                    </div>
+                  )}
+                  {msg && <p className="text-xs text-emerald-500">{msg}</p>}
+                </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleReceiptUpload}
+                  disabled={ocrLoading}
+                  className="hidden"
+                />
+              </label>
+
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <Select
+                  value={categoryValue}
+                  onValueChange={(val) => setValue("category", val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.title}>
+                        {cat.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Amount"
+                  {...register("amount", { required: true })}
+                />
+                <Input placeholder="Note" {...register("note")} />
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Button type="submit" className="w-full">
+                  Submit Transaction
+                </Button>
+              </form>
+            </div>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+);
+
+
+const DashboardContent = () => {
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const [categories, setCategories] = useState<CategoryDashboardInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userInfo, setUserInfo] = useState("");
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [insights, setInsights] = useState<SpendingInsight[]>([]);
+  const [showInsights, setShowInsights] = useState(false);
 
-  const fetchCategories = async () => {
-    setFetchingCategories(true);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const loggedIn = await isLoggedIn();
       if (!loggedIn) {
@@ -120,770 +645,320 @@ const Dashboard = () => {
         return;
       }
       const userId = await getUserId();
-      if (!userId) {
-        setCategoryError("User ID not found.");
-        return;
-      }
-      const cats = await getCategoriesDashboardInfo(userId);
+      if (!userId) return;
+
+      const [cats, user] = await Promise.all([
+        getCategoriesDashboardInfo(userId),
+        getUserInfo(),
+      ]);
+
       setCategories(cats);
+      setUserInfo(user);
     } catch (err: any) {
-      setCategoryError(err.message || "Failed to fetch data.");
-    } finally {
-      setFetchingCategories(false);
-    }
-  };
-
-  const fetchUserInfo = async () => {
-    const name = await getUserInfo();
-    setUserInfo(name);
-  };
-
-  useEffect(() => {
-    fetchUserInfo();
-    fetchCategories();
-  }, [navigate]);
-
-  useEffect(() => {
-    registerTransaction("category", { required: true });
-  }, [registerTransaction]);
-
-
-  const onSubmitCategory = async (data: CategoryInputs) => {
-    try {
-      const userId = await getUserId();
-      if (!userId) return navigate("/login", { replace: true });
-
-      await addCategory(data.title, userId);
-      reset();
-      setCategoryError(null);
-      setSuccessMessage("Category created successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-      fetchCategories();
-    } catch (err: any) {
-      setCategoryError(err.message || "Failed to add category.");
-    }
-  };
-
-
-  const onSubmitTransaction = async (data: TransactionInputs) => {
-    setTransactionError(null);
-    setSuccessMessage(null);
-    try {
-      const userId = await getUserId();
-      if (!userId) return navigate("/login", { replace: true });
-      const categoryValue = data.category || transactionCategory;
-      if (!categoryValue) {
-        setTransactionError("Please select a category.");
-        return;
-      }
-
-      await addTransaction({
-        user_id: userId,
-        category: categoryValue,
-        amount: Number(data.amount),
-        note: data.note,
-        created_at: (transactionDate ?? new Date()).toISOString(),
-      });
-
-      resetTransaction();
-      setTransactionCategory("");
-      setTransactionDate(new Date());
-      setSuccessMessage("Transaction added successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-      await fetchCategories();
-      
-      // Load insights after transaction is created
-      setTimeout(async () => {
-        await loadInsights();
-      }, 1000);
-    } catch (err: any) {
-      setTransactionError(err.message || "Failed to add transaction.");
-    }
-  };
-
-  const handleAddBudget = async () => {
-    setLoading(true);
-    setBudgetError(null);
-    try {
-      const userId = await getUserId();
-      if (!userId) return navigate("/login", { replace: true });
-      const startDate = budgetRange?.from ? format(budgetRange.from, "yyyy-MM-dd") : "";
-      const endDate = budgetRange?.to ? format(budgetRange.to, "yyyy-MM-dd") : "";
-      if (!budgetCategory || !budgetAmount || !startDate || !endDate) {
-        setBudgetError("All fields are required.");
-        setLoading(false);
-        return;
-      }
-
-      await addBudget(userId, budgetCategory, {
-        amount: Number(budgetAmount),
-        start_date: startDate,
-        end_date: endDate,
-      });
-
-      setSuccessMessage("Budget added successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-      setBudgetCategory("");
-      setBudgetAmount("");
-      setBudgetRange(createDefaultRange());
-      fetchCategories();
-    } catch (err: any) {
-      setBudgetError(err.message || "Failed to create budget.");
+      setGlobalError(err.message || "Failed to load dashboard.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [insights, setInsights] = useState<SpendingInsight[]>([]);
-  const [showInsights, setShowInsights] = useState(false);
-
-  
-  const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setOcrLoading(true);
-    setOcrProgress(0);
-    setTransactionError(null);
-    setSuccessMessage(null);
-    
-    try {
-      const userId = await getUserId();
-      if (!userId) {
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      // Step 1: Extract text with OCR
-      setOcrProgress(30);
-      const text = await extractTextFromImage(file);
-      
-      if (!text || text.trim().length === 0) {
-        throw new Error("Could not extract text from receipt. Please ensure the image is clear.");
-      }
-
-      // Step 2: Get available categories for AI
-      setOcrProgress(50);
-      const availableCategories = categories.length > 0 
-        ? categories.map(cat => cat.title)
-        : ["Food", "Transport", "Shopping", "Entertainment", "Utilities", "Other"];
-
-      // Step 3: Parse with AI
-      setOcrProgress(70);
-      const parsed = await parseReceiptText(text, userId, availableCategories);
-
-      if (parsed.amount === 0) {
-        throw new Error("Could not extract amount from receipt. Please check the image quality.");
-      }
-
-      // Step 4: Auto-fill form (user can review and submit manually)
-      setOcrProgress(90);
-      setValue("category", parsed.category);
-      setValue("amount", parsed.amount);
-      setValue("note", parsed.note);
-      setTransactionCategory(parsed.category);
-      const parsedDate = parsed.created_at ? new Date(parsed.created_at) : null;
-      if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
-        setTransactionDate(parsedDate);
-      }
-
-      // Form is now filled - user can review and submit manually
-      setOcrProgress(100);
-      const confidenceMsg = parsed.confidence 
-        ? ` (${Math.round(parsed.confidence * 100)}% confidence)`
-        : "";
-      const merchantMsg = parsed.merchant ? ` from ${parsed.merchant}` : "";
-      setSuccessMessage(
-        `Receipt parsed successfully${merchantMsg}! Amount: $${parsed.amount.toFixed(2)} in ${parsed.category}${confidenceMsg}. Please review and click "Submit Transaction" to confirm.`
-      );
-      
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (error: any) {
-      console.error("Receipt processing error:", error);
-      setTransactionError(error.message || "Failed to process receipt. Please try again with a clearer image.");
-    } finally {
-      setOcrLoading(false);
-      setOcrProgress(0);
-      event.target.value = "";
-    }
-  };
-
-  const loadInsights = async () => {
-    try {
-      const userId = await getUserId();
-      if (!userId || categories.length === 0) return;
-
-      // Create basic insights from category data
-      const basicInsights: SpendingInsight[] = [];
-
-      categories.forEach(cat => {
-        if (cat.total_transactions_amount && cat.total_transactions_amount > 500) {
-          basicInsights.push({
-            type: "info",
-            message: `High spending in ${cat.title}: $${cat.total_transactions_amount.toFixed(2)}`,
-            category: cat.title,
-            amount: cat.total_transactions_amount,
-          });
-        }
-
-    
-        if (cat.is_there_active_budget && cat.active_budget_amount) {
-          const spent = cat.total_transactions_amount || 0;
-          const percentage = (spent / cat.active_budget_amount) * 100;
-          
-          if (percentage > 100) {
-            basicInsights.push({
-              type: "warning",
-              message: `Budget exceeded in ${cat.title} by $${(spent - cat.active_budget_amount).toFixed(2)}`,
-              category: cat.title,
-              amount: spent - cat.active_budget_amount,
-            });
-          } else if (percentage > 80) {
-            basicInsights.push({
-              type: "warning",
-              message: `Approaching budget limit in ${cat.title} (${percentage.toFixed(0)}% used)`,
-              category: cat.title,
-            });
-          }
-        }
-      });
-
-      setInsights(basicInsights);
-      if (basicInsights.length > 0) {
-        setShowInsights(true);
-      }
-    } catch (error) {
-      console.error("Failed to load insights:", error);
-    }
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const chartData = useMemo(() => {
-    return categories.map(cat => ({
+    return categories.map((cat) => ({
       name: cat.title,
       totalBudget: cat.total_budget_amount,
-      activeBudget: cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0,
-      budgetCount: cat.budget_count,
+      activeBudget: cat.is_there_active_budget
+        ? cat.active_budget_amount || 0
+        : 0,
       totalTransactions: cat.total_transactions_amount || 0,
-      transactionCount: cat.trasactions_count || 0,
       id: cat.id,
     }));
   }, [categories]);
 
   const summary = useMemo(() => {
-    if (!categories.length) {
-      return {
-        totalBudget: 0,
-        activeBudget: 0,
-        totalTransactions: 0,
-        transactionsCount: 0,
-        categoriesCount: 0,
-      };
-    }
-
-    const aggregate = categories.reduce(
-      (acc, cat) => {
-        acc.totalBudget += cat.total_budget_amount || 0;
-        acc.activeBudget += cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0;
-        acc.totalTransactions += cat.total_transactions_amount || 0;
-        acc.transactionsCount += cat.trasactions_count || 0;
-        return acc;
-      },
+    return categories.reduce(
+      (acc, cat) => ({
+        totalBudget: acc.totalBudget + (cat.total_budget_amount || 0),
+        activeBudget:
+          acc.activeBudget +
+          (cat.is_there_active_budget ? cat.active_budget_amount || 0 : 0),
+        totalTransactions:
+          acc.totalTransactions + (cat.total_transactions_amount || 0),
+        transactionsCount: acc.transactionsCount + (cat.trasactions_count || 0),
+        categoriesCount: acc.categoriesCount + 1,
+      }),
       {
         totalBudget: 0,
         activeBudget: 0,
         totalTransactions: 0,
         transactionsCount: 0,
+        categoriesCount: 0,
       }
     );
-
-    return {
-      ...aggregate,
-      categoriesCount: categories.length,
-    };
   }, [categories]);
 
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }),
-    []
+
+
+  const handleAddCategory = useCallback(
+    async (title: string) => {
+      try {
+        const userId = await getUserId();
+        if (!userId) return;
+        await addCategory(title, userId);
+        setSuccessMsg("Category created!");
+        setTimeout(() => setSuccessMsg(null), 3000);
+        fetchData();
+      } catch (err: any) {
+        setGlobalError(err.message);
+      }
+    },
+    [fetchData]
   );
 
-  const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+  const handleAddBudget = useCallback(
+    async (category: string, amount: number, range: DateRange) => {
+      try {
+        const userId = await getUserId();
+        if (!userId) return;
+        const start = format(range.from!, "yyyy-MM-dd");
+        const end = format(range.to!, "yyyy-MM-dd");
 
-  const handleBarClick = (data: any) => {
-    if (data?.id) navigate(`/category/${data.id}`);
-  };
+        await addBudget(userId, category, {
+          amount,
+          start_date: start,
+          end_date: end,
+        });
+        setSuccessMsg("Budget set!");
+        setTimeout(() => setSuccessMsg(null), 3000);
+        fetchData();
+      } catch (err: any) {
+        setGlobalError(err.message);
+      }
+    },
+    [fetchData]
+  );
+
+  const handleAddTransaction = useCallback(
+    async (data: any) => {
+      try {
+        const userId = await getUserId();
+        if (!userId) return;
+        await addTransaction({
+          user_id: userId,
+          category: data.category,
+          amount: Number(data.amount),
+          note: data.note,
+          created_at: data.created_at,
+        });
+        setSuccessMsg("Transaction recorded.");
+        setTimeout(() => setSuccessMsg(null), 3000);
+        await fetchData();
+
+        // Simple insight generation after transaction
+        const newInsights: SpendingInsight[] = [];
+        if (Number(data.amount) > 500) {
+          newInsights.push({
+            type: "warning",
+            message: `Large transaction detected: $${data.amount}`,
+            category: data.category,
+          });
+          setInsights(newInsights);
+          setShowInsights(true);
+        }
+      } catch (err: any) {
+        setGlobalError(err.message);
+      }
+    },
+    [fetchData]
+  );
+
+  // Safe user ID access for children
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    getUserId().then(setCurrentUserId);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#0f172a,_#020617)] text-white">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 lg:px-0">
-        <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-600/20 via-purple-600/10 to-slate-900/80 p-6 shadow-2xl backdrop-blur">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-4">
-              <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.3em] text-indigo-200">
-                <Sparkles className="h-4 w-4 text-yellow-300" />
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 lg:px-6">
+        
+        {/* Header */}
+        <header className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary">
+                <Sparkles className="h-3 w-3" />
                 Live Control
               </p>
-              <div>
-                <h1 className="text-3xl font-bold leading-tight md:text-4xl">
-                  Pocket Watch
-                </h1>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant="ghost"
-                  className="border border-white/20 bg-white/10 text-white shadow-lg shadow-indigo-500/40 transition hover:-translate-y-0.5 hover:bg-white/20"
-                  onClick={() => fetchCategories()}
-                >
-                  Refresh Insights
-                </Button>
-                <Button
-                  className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 text-slate-900 shadow-lg shadow-emerald-500/40 transition hover:-translate-y-0.5"
-                  onClick={() =>
-                    document.getElementById("budget-card")?.scrollIntoView({ behavior: "smooth" })
-                  }
-                >
-                  Plan New Budget
-                </Button>
-              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
+                Pocket Watch
+              </h1>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="min-w-[240px] border-white/40 bg-white/10 text-left text-white hover:bg-white/20"
-                >
-                  <Avatar className="border border-white/40">
-                    <AvatarImage src="/path/to/profile.jpg" alt="User avatar" />
-                    <AvatarFallback>{userInfo?.[0]?.toUpperCase() || "PW"}</AvatarFallback>
-                  </Avatar>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold">{userInfo || "Guest Analyst"}</p>
-                    <p className="text-xs text-white/70">Tap to manage</p>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-48">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigate("/logout")}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+            <div className="flex items-center gap-4">
+              {/* Theme Toggle */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <span className="sr-only">Toggle theme</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setTheme("light")}>
+                    <Sun className="mr-2 h-4 w-4" /> Light
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("dark")}>
+                    <Moon className="mr-2 h-4 w-4" /> Dark
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("system")}>
+                    <Laptop className="mr-2 h-4 w-4" /> System
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-2">
+                    <Avatar className="h-8 w-8 border">
+                      <AvatarImage src="" />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {userInfo?.[0]?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden text-left text-sm md:block">
+                      <p className="font-medium">{userInfo || "Guest"}</p>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Account</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigate("/logout")}>
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 
-        {successMessage && (
-          <Alert className="border-emerald-500/60 bg-emerald-500/10 text-emerald-100">
+        {/* Alerts */}
+        {successMsg && (
+          <Alert className="border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <AlertTitle>Success</AlertTitle>
-            <AlertDescription>{successMessage}</AlertDescription>
+            <AlertDescription>{successMsg}</AlertDescription>
           </Alert>
         )}
-        {(categoryError || budgetError || transactionError) && (
-          <Alert className="border-red-500/60 bg-red-500/10 text-red-100">
+        {globalError && (
+          <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{categoryError || budgetError || transactionError}</AlertDescription>
+            <AlertDescription>{globalError}</AlertDescription>
           </Alert>
         )}
 
         {showInsights && insights.length > 0 && (
-          <Card className="border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <Card className="border-indigo-500/30 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
+            <CardHeader className="flex flex-row items-center justify-between py-4">
               <div className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-yellow-400" />
-                <CardTitle className="text-lg">AI Spending Insights</CardTitle>
+                <Lightbulb className="h-5 w-5 text-amber-500" />
+                <CardTitle className="text-base">Insights</CardTitle>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
                 onClick={() => setShowInsights(false)}
               >
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent>
               {insights.map((insight, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg border p-3 backdrop-blur-sm",
-                    insight.type === "warning" && "border-amber-500/30 bg-amber-500/10",
-                    insight.type === "suggestion" && "border-blue-500/30 bg-blue-500/10",
-                    insight.type === "info" && "border-indigo-500/30 bg-indigo-500/10"
-                  )}
-                >
+                <div key={idx} className="flex items-center gap-3 text-sm">
                   {insight.type === "warning" && (
-                    <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
-                  )}
-                  {insight.type === "suggestion" && (
-                    <Lightbulb className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
                   )}
                   {insight.type === "info" && (
-                    <Info className="h-5 w-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+                    <Info className="h-4 w-4 text-blue-500" />
                   )}
-                  <p className="text-sm text-white/90 flex-1">{insight.message}</p>
+                  <span>{insight.message}</span>
                 </div>
               ))}
             </CardContent>
           </Card>
         )}
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: "Total Budget",
-              hint: "Across all categories",
-              value: formatCurrency(summary.totalBudget),
-              icon: Wallet,
-            },
-            {
-              label: "Active Budget",
-              hint: "Live envelopes",
-              value: formatCurrency(summary.activeBudget),
-              icon: TrendingUp,
-            },
-            {
-              label: "Transactions",
-              hint: `${summary.transactionsCount} logged`,
-              value: formatCurrency(summary.totalTransactions),
-              icon: Sparkles,
-            },
-            {
-              label: "Categories",
-              hint: "Personalized groups",
-              value: summary.categoriesCount,
-              icon: Layers,
-            },
-          ].map(({ label, hint, value, icon: Icon }) => (
-            <Card
-              key={label}
-              className="border-white/10 bg-white/5 text-white shadow-xl shadow-black/30 transition hover:-translate-y-1 hover:border-white/30"
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-white/80">{label}</CardTitle>
-                <Icon className="h-5 w-5 text-indigo-200" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
-                <p className="text-xs text-white/70">{hint}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
+        <StatsSection summary={summary} />
 
-        <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
-          <Card className="border-white/10 bg-white/5 text-white shadow-2xl shadow-black/30">
-            <CardHeader className="space-y-1">
+        <div className="grid gap-6 lg:grid-cols-3">
+          
+          <Card className="shadow-lg lg:col-span-2">
+            <CardHeader>
               <CardTitle>Spending Pulse</CardTitle>
-              <CardDescription className="text-white/70">
-                Dive into your budgets and click any bar to deep-dive on a category.
+              <CardDescription>
+                Real-time visualization of your budgets vs spending.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
-              {fetchingCategories ? (
-                <ChartSkeleton />
-              ) : categories.length > 0 ? (
-                <div className="h-[420px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      onClick={(e) => handleBarClick(e?.activePayload?.[0]?.payload)}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#CBD5F5" }} />
-                      <YAxis tick={{ fill: "#CBD5F5" }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e1b4b" }}
-                        labelStyle={{ color: "#e0e7ff" }}
-                      />
-                      <Legend />
-                      <Bar dataKey="totalBudget" fill="#6366F1" name="Total Budget $" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="activeBudget" fill="#4ade80" name="Active Budget $" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="budgetCount" fill="#fbbf24" name="Budgets" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="totalTransactions" fill="#f87171" name="Transactions $" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="transactionCount" fill="#c084fc" name="Transactions" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-white/20 p-8 text-center text-white/70">
-                  No categories to display yet. Start by creating your first category below.
-                </div>
-              )}
+            <CardContent>
+              <SpendingChart
+                data={chartData}
+                loading={loading}
+                onBarClick={(id) => navigate(`/category/${id}`)}
+              />
             </CardContent>
           </Card>
 
+  
           <div className="space-y-6">
-            <Card
-              id="category-card"
-              className="border-white/10 bg-white/[0.08] text-white shadow-2xl shadow-black/30"
-            >
+            
+            <Card className="shadow-md">
               <CardHeader>
-                <CardTitle>Instant Categories</CardTitle>
-                <CardDescription className="text-white/70">
-                  Keep spending sorted by crafting smart containers.
-                </CardDescription>
+                <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(onSubmitCategory)} className="space-y-4">
-                  <Input
-                    placeholder="ie. Wellness, Studio Gear..."
-                    {...register("title", { required: true })}
-                    className="border-white/20 bg-white/10 text-white placeholder:text-white/50"
-                  />
-                  {errors.title && (
-                    <p className="text-sm text-red-300">Title is required</p>
-                  )}
-                  <Button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-indigo-500/40 transition hover:-translate-y-0.5"
-                  >
-                    Create Category
-                  </Button>
-                </form>
+              <CardContent className="space-y-4">
+                <TransactionDrawer
+                  categories={categories}
+                  onAdd={handleAddTransaction}
+                  userId={currentUserId}
+                />
               </CardContent>
             </Card>
 
-            <Card
-              id="budget-card"
-              className="border-white/10 bg-white/[0.08] text-white shadow-2xl shadow-black/30"
-            >
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle>New Category</CardTitle>
+                <CardDescription>Create a container for spending</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CategoryForm onAdd={handleAddCategory} />
+              </CardContent>
+            </Card>
+
+            {/* Budget Architect */}
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle>Budget Architect</CardTitle>
-                <CardDescription className="text-white/70">
-                  Assign envelopes, amounts, and shimmering timelines.
-                </CardDescription>
+                <CardDescription>Set limits for your categories</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Select value={budgetCategory} onValueChange={setBudgetCategory}>
-                  <SelectTrigger className="w-full border-white/30 bg-white/10 text-white">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length > 0 ? (
-                      categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.title}>
-                          {cat.title}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="__empty" disabled>
-                        No categories found
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-
-                <Input
-                  type="number"
-                  placeholder="Budget Amount"
-                  value={budgetAmount}
-                  className="border-white/30 bg-white/10 text-white placeholder:text-white/50"
-                  onChange={(e) => setBudgetAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                />
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start border-dashed border-white/30 bg-white/5 text-left font-normal text-white hover:bg-white/10",
-                        !budgetRange?.from && "text-white/60"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {budgetRange?.from && budgetRange?.to ? (
-                        <>
-                          {format(budgetRange.from, "PPP")} - {format(budgetRange.to, "PPP")}
-                        </>
-                      ) : (
-                        <span>Pick budget window</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto border-white/20 bg-slate-900 p-0 text-white" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      numberOfMonths={2}
-                      selected={budgetRange}
-                      onSelect={setBudgetRange}
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                <Button
-                  onClick={handleAddBudget}
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 text-slate-900 shadow-lg shadow-emerald-500/40 transition hover:-translate-y-0.5 disabled:opacity-50"
-                >
-                  {loading ? "Creating..." : "Add Budget"}
-                </Button>
-                {budgetError ? (
-                  <p className="text-sm text-rose-300">{budgetError}</p>
-                ) : (
-                  <p className="text-xs text-white/50">Budgets auto-sync with your chart in real-time.</p>
-                )}
+              <CardContent>
+                <BudgetForm categories={categories} onAdd={handleAddBudget} />
               </CardContent>
             </Card>
           </div>
-        </section>
-
-        <Card className="border-white/10 bg-white/[0.08] text-white shadow-2xl shadow-black/30">
-          <CardHeader>
-            <CardTitle>Smart Receipt Capture</CardTitle>
-            <CardDescription className="text-white/70">
-              Launch the drawer to upload a slip, auto-parse it, and fine-tune details.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Drawer>
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-white/70">
-                  Tap below to open the immersive transaction composer with OCR superpowers.
-                </p>
-                <DrawerTrigger asChild>
-                  <Button className="bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-500/40 transition hover:-translate-y-0.5">
-                    Launch Composer
-                  </Button>
-                </DrawerTrigger>
-              </div>
-              <DrawerContent className="border-t border-white/10 bg-slate-950 text-white">
-                <DrawerHeader>
-                  <DrawerTitle>Craft a New Transaction</DrawerTitle>
-                  <DrawerDescription className="text-white/70">
-                    Upload a receipt or add details manually. Everything is mobile-first and snappy.
-                  </DrawerDescription>
-                </DrawerHeader>
-
-                <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
-                  <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/30 bg-white/5 p-6 text-center transition hover:-translate-y-0.5 hover:border-white/60 relative overflow-hidden">
-                    {ocrLoading && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-blue-500/20 animate-pulse" />
-                    )}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <Upload className={cn(
-                        "mb-3 h-10 w-10 text-white/80 transition-all",
-                        ocrLoading && "animate-bounce"
-                      )} />
-                      <p className="text-sm text-white/80 font-medium mb-2">
-                        {ocrLoading 
-                          ? `Processing... ${ocrProgress}%` 
-                          : "Tap to upload or drop an image"}
-                      </p>
-                      {ocrLoading && (
-                        <div className="w-full max-w-xs h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-                          <div 
-                            className="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 transition-all duration-300"
-                            style={{ width: `${ocrProgress}%` }}
-                          />
-                        </div>
-                      )}
-                      <p className="text-xs text-white/60">
-                        {ocrLoading 
-                          ? "AI is extracting data from your receipt..." 
-                          : "PNG, JPG, or PDF up to 10MB"}
-                      </p>
-                    </div>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleReceiptUpload}
-                      disabled={ocrLoading}
-                      className="hidden"
-                    />
-                  </label>
-
-                  <form onSubmit={handleTransactionSubmit(onSubmitTransaction)} className="space-y-4">
-                    <Select
-                      value={transactionCategory}
-                      onValueChange={(value) => {
-                        setTransactionCategory(value);
-                        setValue("category", value);
-                      }}
-                    >
-                      <SelectTrigger className="w-full border-white/30 bg-white/5 text-white">
-                        <SelectValue placeholder="Select Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.length > 0 ? (
-                          categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.title}>
-                              {cat.title}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="__empty" disabled>
-                            No categories found
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      {...registerTransaction("amount", { required: true })}
-                      className="border-white/30 bg-white/5 text-white placeholder:text-white/50"
-                    />
-                    <Input
-                      placeholder="Internal note"
-                      {...registerTransaction("note")}
-                      className="border-white/30 bg-white/5 text-white placeholder:text-white/50"
-                    />
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start border-white/30 bg-white/5 text-left font-normal text-white hover:bg-white/10",
-                            !transactionDate && "text-white/60"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {transactionDate ? format(transactionDate, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto border-white/20 bg-slate-900 p-0 text-white" align="start">
-                        <Calendar
-                          initialFocus
-                          mode="single"
-                          selected={transactionDate}
-                          onSelect={setTransactionDate}
-                        />
-                      </PopoverContent>
-                    </Popover>
-
-                    <Button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/40 transition hover:-translate-y-0.5"
-                    >
-                      Submit Transaction
-                    </Button>
-                  </form>
-                </div>
-
-                <DrawerFooter>
-                  <DrawerClose asChild>
-                    <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                      Cancel
-                    </Button>
-                  </DrawerClose>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
+  );
+};
+
+const Dashboard = () => {
+  return (
+    <ThemeProvider>
+      <DashboardContent />
+    </ThemeProvider>
   );
 };
 
