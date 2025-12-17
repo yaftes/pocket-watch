@@ -2,7 +2,7 @@ import { supabase } from "./supabase_client";
 
 export type Transaction = {
   id?: string;
-  user_id: string;
+  user_id?: string;
   category: string;
   amount: number;
   note?: string;
@@ -92,6 +92,7 @@ export const addTransaction = async (transaction: Transaction) => {
 
   if (error) throw error;
   return data;
+
 };
 
 

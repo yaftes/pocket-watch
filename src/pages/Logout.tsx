@@ -6,7 +6,9 @@ import { Spinner } from "../components/ui/spinner";
 
 type LogoutState = "pending" | "success" | "error";
 
+
 const Logout = () => {
+
   const [status, setStatus] = useState<LogoutState>("pending");
   const [message, setMessage] = useState("Signing you out securely...");
   const navigate = useNavigate();

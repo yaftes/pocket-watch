@@ -40,7 +40,6 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -86,8 +85,8 @@ import {
 } from "../components/ui/popover";
 import { Calendar } from "../components/ui/calendar";
 import { cn } from "../lib/utils";
-import { extractTextFromImage, parseReceiptText } from "../utils/receipt";
 import type { SpendingInsight } from "../utils/ai_service";
+import { useReceipt } from "../hooks/useReceipt";
 
 
 type Theme = "dark" | "light" | "system";
@@ -424,7 +423,7 @@ const BudgetForm = React.memo(
 );
 
 
-const TransactionDrawer = React.memo(
+export const TransactionDrawer = React.memo(
   ({
     categories,
     onAdd,
@@ -435,51 +434,11 @@ const TransactionDrawer = React.memo(
     userId: string | null;
   }) => {
     const { register, handleSubmit, setValue, reset, watch } = useForm();
-    const [ocrLoading, setOcrLoading] = useState(false);
-    const [ocrProgress, setOcrProgress] = useState(0);
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState<Date | undefined>(new Date());
-    const [msg, setMsg] = useState<string | null>(null);
     const categoryValue = watch("category");
 
-    const handleReceiptUpload = async (
-      event: React.ChangeEvent<HTMLInputElement>
-    ) => {
-      const file = event.target.files?.[0];
-      if (!file || !userId) return;
-
-      setOcrLoading(true);
-      setOcrProgress(10);
-      setMsg(null);
-
-      try {
-        const text = await extractTextFromImage(file);
-        setOcrProgress(50);
-        if (!text) throw new Error("No text found.");
-
-        const availableCategories = categories.map((c) => c.title);
-        const parsed = await parseReceiptText(text, userId, availableCategories);
-        setOcrProgress(90);
-
-        if (parsed.amount) {
-          setValue("amount", parsed.amount);
-          setValue("category", parsed.category);
-          setValue("note", parsed.note);
-          if (parsed.created_at) setDate(new Date(parsed.created_at));
-
-          setMsg(
-            `Scanned: $${parsed.amount} - ${parsed.merchant || "Unknown"}`
-          );
-        }
-      } catch (err) {
-        console.error(err);
-        setMsg("Failed to scan receipt.");
-      } finally {
-        setOcrLoading(false);
-        setOcrProgress(0);
-        event.target.value = "";
-      }
-    };
+    const { handleUpload, loading: ocrLoading, error: ocrError } = useReceipt(userId || "");
 
     const onSubmit = async (data: any) => {
       await onAdd({
@@ -494,7 +453,7 @@ const TransactionDrawer = React.memo(
     return (
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerTrigger asChild>
-          <Button className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg transition hover:-translate-y-0.5">
+          <Button className="bg-black text-white shadow-lg transition hover:-translate-y-0.5">
             Launch Composer
           </Button>
         </DrawerTrigger>
@@ -502,52 +461,29 @@ const TransactionDrawer = React.memo(
           <div className="mx-auto w-full max-w-4xl">
             <DrawerHeader>
               <DrawerTitle>New Transaction</DrawerTitle>
-              <DrawerDescription>
-                Manually enter details or scan a receipt.
-              </DrawerDescription>
             </DrawerHeader>
 
             <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
               <label className="relative flex min-h-[220px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-muted/30 p-6 text-center transition hover:bg-muted/50">
-                {ocrLoading && (
-                  <div className="absolute inset-0 z-0 animate-pulse bg-primary/10" />
-                )}
+                {ocrLoading && <div className="absolute inset-0 z-0 animate-pulse bg-primary/10" />}
                 <div className="relative z-10 flex flex-col items-center">
-                  <Upload
-                    className={cn(
-                      "mb-3 h-10 w-10 text-muted-foreground",
-                      ocrLoading && "animate-bounce text-primary"
-                    )}
-                  />
+                  <Upload className={cn("mb-3 h-10 w-10 text-muted-foreground", ocrLoading && "animate-bounce text-primary")} />
                   <p className="mb-2 text-sm font-medium">
-                    {ocrLoading
-                      ? `Processing... ${ocrProgress}%`
-                      : "Tap to upload receipt"}
+                    {ocrLoading ? "Processing..." : "Tap to upload receipt"}
                   </p>
-                  {ocrLoading && (
-                    <div className="mb-2 h-1 w-24 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${ocrProgress}%` }}
-                      />
-                    </div>
-                  )}
-                  {msg && <p className="text-xs text-emerald-500">{msg}</p>}
+                  {ocrError && <p className="text-xs text-destructive">{ocrError}</p>}
                 </div>
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={handleReceiptUpload}
+                  onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
                   disabled={ocrLoading}
                   className="hidden"
                 />
               </label>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <Select
-                  value={categoryValue}
-                  onValueChange={(val) => setValue("category", val)}
-                >
+                <Select value={categoryValue} onValueChange={(val) => setValue("category", val)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
@@ -560,34 +496,18 @@ const TransactionDrawer = React.memo(
                   </SelectContent>
                 </Select>
 
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Amount"
-                  {...register("amount", { required: true })}
-                />
+                <Input type="number" step="0.01" placeholder="Amount" {...register("amount", { required: true })} />
                 <Input placeholder="Note" {...register("note")} />
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {date ? format(date, "PPP") : "Pick a date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={setDate}
-                      initialFocus
-                    />
+                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
                   </PopoverContent>
                 </Popover>
 
@@ -596,6 +516,7 @@ const TransactionDrawer = React.memo(
                 </Button>
               </form>
             </div>
+
             <DrawerFooter>
               <DrawerClose asChild>
                 <Button variant="outline">Cancel</Button>
@@ -609,6 +530,7 @@ const TransactionDrawer = React.memo(
 );
 
 
+
 const DashboardContent = () => {
   const { setTheme } = useTheme(); 
   const navigate = useNavigate();
@@ -619,11 +541,11 @@ const DashboardContent = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Insights State
+
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [showInsights, setShowInsights] = useState(false);
 
-  // Helper to fetch data
+ 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -744,7 +666,7 @@ const DashboardContent = () => {
         setTimeout(() => setSuccessMsg(null), 3000);
         await fetchData();
 
-        // Simple insight generation after transaction
+       
         const newInsights: SpendingInsight[] = [];
         if (Number(data.amount) > 500) {
           newInsights.push({
@@ -762,7 +684,7 @@ const DashboardContent = () => {
     [fetchData]
   );
 
-  // Safe user ID access for children
+  
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   useEffect(() => {
     getUserId().then(setCurrentUserId);

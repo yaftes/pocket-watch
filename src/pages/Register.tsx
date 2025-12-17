@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "../components/ui/card";
 
-
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { cn } from "../lib/utils";
 
@@ -187,7 +186,7 @@ const Register = () => {
           </p>
         </div>
 
-        
+
       </div>
     </div>
   );

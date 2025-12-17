@@ -14,6 +14,8 @@ import {
   MoreVertical,
 } from "lucide-react";
 
+
+
 import {
   deleteCategory,
   getCategoryDetail,
@@ -55,8 +57,6 @@ import { cn } from "../lib/utils";
 
 
 
-
-
 const StatsGrid = React.memo(
   ({
     budgetCount,
@@ -74,7 +74,6 @@ const StatsGrid = React.memo(
 
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
-        {/* Budgets Count */}
         <Card className="overflow-hidden border-indigo-200 bg-indigo-50/50 dark:border-indigo-500/20 dark:bg-indigo-950/10">
           <CardContent className="p-6">
             <div className="mb-3 flex items-center justify-between">
@@ -118,6 +117,7 @@ const StatsGrid = React.memo(
           </CardContent>
         </Card>
 
+
         <Card
           className={cn(
             "overflow-hidden transition-all",
@@ -126,6 +126,8 @@ const StatsGrid = React.memo(
               : "border-amber-200 bg-amber-50/50 dark:border-amber-500/20 dark:bg-amber-950/10"
           )}
         >
+
+
           <CardContent className="p-6">
             <div className="mb-3 flex items-center justify-between">
               <DollarSign
@@ -269,6 +271,8 @@ const BudgetList = React.memo(
 
 
 
+
+
 const TransactionList = React.memo(
   ({
     transactions,
@@ -348,7 +352,9 @@ const TransactionList = React.memo(
 
 
 
+
 const CategoryDetail = () => {
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -362,6 +368,7 @@ const CategoryDetail = () => {
 
 
   const fetchData = useCallback(async () => {
+
     if (!id) return;
     try {
       const uid = await getUserId();
@@ -383,6 +390,7 @@ const CategoryDetail = () => {
     }
   }, [id, navigate, categoryDetail]);
 
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -397,6 +405,7 @@ const CategoryDetail = () => {
       ),
     };
   }, [categoryDetail]);
+
 
   const handleCategoryDelete = async () => {
     if (!id || !userId) return;
@@ -565,7 +574,7 @@ const CategoryDetail = () => {
           <div className="space-y-4">
             <BudgetList budgets={budgets} onDelete={handleBudgetDelete} />
           </div>
-          
+
           <div className="space-y-4">
             <TransactionList
               transactions={transactions}
@@ -577,5 +586,7 @@ const CategoryDetail = () => {
     </div>
   );
 };
+
+
 
 export default CategoryDetail;

@@ -147,6 +147,8 @@ export const updateBudget = async (
 };
 
 
+
+
 export const deleteBudget = async (id: string, user_id: string) => {
   const { error } = await supabase
     .from('budgets')

@@ -12,7 +12,6 @@ import Logout from "../pages/Logout";
 const AppRoutes = () => {
   return (
     <Routes>
-   
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
